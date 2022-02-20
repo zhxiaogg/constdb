@@ -1,6 +1,9 @@
+use core::panic;
 use std::{collections::HashMap, fs, path::Path};
 
 use rocksdb::{ColumnFamilyDescriptor, Direction, Options, ReadOptions, DB};
+use serde_json::Value;
+use warp::hyper::body::Bytes;
 
 use self::{
     api::{CreateTableInput, DBItem, TableItem},
@@ -137,6 +140,25 @@ impl ConstDB {
         Ok(())
     }
 
+    pub fn get_table(&self, db_name: &str, table_name: &str) -> Result<TableItem, ConstDBError> {
+        if !self.db_exists(db_name) {
+            return Err(ConstDBError::NotFound(format!(
+                "db [{}] not found!",
+                db_name
+            )));
+        }
+        let system_db = self.system_db()?;
+        let table_meta_key = SystemKeys::table_meta_key(db_name, table_name);
+        let result = system_db.rocks_db()?.get(table_meta_key.as_key())?;
+        match result {
+            None => Err(ConstDBError::NotFound(format!(
+                "table not exists [{}.{}]!",
+                db_name, table_name
+            ))),
+            Some(value) => Ok(serde_json::from_slice(&value)?),
+        }
+    }
+
     pub fn list_table(&self, db_name: &str) -> Result<Vec<TableItem>, ConstDBError> {
         if !self.db_exists(db_name) {
             return Err(ConstDBError::NotFound(format!(
@@ -201,6 +223,74 @@ impl ConstDB {
             SystemKeys::table_meta_key(db_name, input.name.as_str()).as_key(),
             serde_json::to_vec(&table_item)?,
         )?;
+        Ok(())
+    }
+
+    pub fn get_by_key(
+        &self,
+        db_name: &str,
+        table_name: &str,
+        params: HashMap<String, String>,
+    ) -> Result<String, ConstDBError> {
+        let table = self.get_table(db_name, table_name)?;
+        let pkey = table
+            .partition_keys
+            .iter()
+            .map(|k| params.get(k))
+            .map(|v| match v {
+                Some(v) => v.to_owned(),
+                None => "".to_owned(),
+            })
+            .fold(String::new(), |mut s, v| {
+                s.push_str(v.as_ref());
+                s
+            });
+
+        let db = self.dbs.get(db_name).ok_or(ConstDBError::NotFound(format!(
+            "database [{}] not found.",
+            db_name
+        )))?;
+
+        let opt_value = db.rocks_db()?.get(pkey)?;
+        match opt_value {
+            Some(v) => Ok(String::from_utf8(v).unwrap()),
+            None => Err(ConstDBError::NotFound("key not found!".to_owned())),
+        }
+    }
+    pub fn insert(&self, db_name: &str, table_name: &str, data: Bytes) -> Result<(), ConstDBError> {
+        let v: Value = serde_json::from_slice(&data).map_err(|e| {
+            ConstDBError::InvalidArguments(format!("cannot deserialize request body: {}", e))
+        })?;
+        let try_primary_key = match v {
+            Value::Object(object) => {
+                let table = self.get_table(db_name, table_name)?;
+                let primary_key = table
+                    .partition_keys
+                    .iter()
+                    .map(|k| object.get(k))
+                    .map(|v| match v {
+                        None => "".to_owned(),
+                        Some(Value::String(v)) => v.to_owned(),
+                        Some(_) => panic!("TODO: not supported value type"),
+                    })
+                    .fold(String::new(), |mut s, v| {
+                        s.push_str(v.as_ref());
+                        s
+                    });
+                Ok(primary_key)
+            }
+            _ => Err(ConstDBError::InvalidArguments(
+                "only json object are supported by now.".to_owned(),
+            )),
+        };
+
+        let primary_key = try_primary_key?;
+        let db = self.dbs.get(db_name).ok_or(ConstDBError::NotFound(format!(
+            "database [{}] not found.",
+            db_name
+        )))?;
+
+        let _table = db.rocks_db()?.put(primary_key, &data)?;
         Ok(())
     }
 

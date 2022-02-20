@@ -5,6 +5,7 @@ pub enum ConstDBError {
     AlreadyExists(String),
     NotFound(String),
     InvalidStates(String),
+    InvalidArguments(String),
 }
 
 impl ToString for ConstDBError {
@@ -13,6 +14,7 @@ impl ToString for ConstDBError {
             ConstDBError::AlreadyExists(msg) => msg.to_owned(),
             ConstDBError::NotFound(msg) => msg.to_owned(),
             ConstDBError::InvalidStates(msg) => msg.to_owned(),
+            ConstDBError::InvalidArguments(msg) => msg.to_owned(),
         }
     }
 }
@@ -23,6 +25,7 @@ impl ConstDBError {
             ConstDBError::AlreadyExists(_msg) => StatusCode::BAD_REQUEST,
             ConstDBError::NotFound(_msg) => StatusCode::NOT_FOUND,
             ConstDBError::InvalidStates(_msg) => StatusCode::INTERNAL_SERVER_ERROR,
+            ConstDBError::InvalidArguments(_) => StatusCode::BAD_REQUEST,
         }
     }
 }
