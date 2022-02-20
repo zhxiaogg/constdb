@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateTableInput {
     pub name: String,
-    partition_keys: Vec<String>,
-    sort_keys: Vec<String>,
+    pub partition_keys: Vec<String>,
+    pub sort_keys: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -33,4 +33,11 @@ impl DBItem {
             name: name.to_owned(),
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TableItem {
+    pub name: String,
+    pub partition_keys: Vec<String>,
+    pub sort_keys: Vec<String>,
 }

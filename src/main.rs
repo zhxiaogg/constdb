@@ -31,15 +31,18 @@ async fn main() {
     let const_db = Arc::new(RwLock::new(ConstDB::create(settings).unwrap()));
 
     let index_route = warp::path::end().map(|| "Hello, ConstDB!");
+    let list_table = list_table_route(&const_db);
     let create_table = create_table_route(&const_db);
     let list_db = list_db_route(&const_db);
     let create_db = create_db_route(&const_db);
-    let ddl_routes = warp::path!("dbs" / ..).and(create_db.or(list_db).or(create_table));
+    let ddl_routes =
+        warp::path!("dbs" / ..).and(create_db.or(list_db).or(create_table).or(list_table));
     let api_routes = warp::path!("api" / "v1" / ..).and(ddl_routes);
     warp::serve(index_route.or(api_routes))
         .run(([0, 0, 0, 0], 8000))
         .await
 }
+
 fn list_db_route(
     db: &Arc<RwLock<ConstDB>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
@@ -51,12 +54,31 @@ fn list_db_route(
             let result = cdb.list_db();
             match result {
                 Ok(dbs) => with_status(json(&dbs), StatusCode::OK).into_response(),
-
                 Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
             }
         }
     })
 }
+fn list_table_route(
+    db: &Arc<RwLock<ConstDB>>,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    let const_db = Arc::clone(db);
+    warp::path!(String / "tables")
+        .and(warp::path::end())
+        .and(warp::get())
+        .then(move |db_name: String| {
+            let const_db = Arc::clone(&const_db);
+            async move {
+                let cdb = const_db.read().await;
+                let result = cdb.list_table(db_name.as_str());
+                match result {
+                    Ok(tables) => with_status(json(&tables), StatusCode::OK).into_response(),
+                    Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
+                }
+            }
+        })
+}
+
 fn create_db_route(
     db: &Arc<RwLock<ConstDB>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {

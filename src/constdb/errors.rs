@@ -1,20 +1,6 @@
 use warp::hyper::StatusCode;
 
 #[derive(Debug)]
-pub enum OpenDBError {
-    InvalidStates(String),
-}
-
-pub enum CreateDBError {
-    AlreadyExists(String),
-    OpenFailed(String),
-}
-
-pub enum CreateTableError {
-    AlreadyExists(String),
-}
-
-#[derive(Debug)]
 pub enum ConstDBError {
     AlreadyExists(String),
     NotFound(String),
@@ -41,14 +27,6 @@ impl ConstDBError {
     }
 }
 
-impl From<OpenDBError> for CreateDBError {
-    fn from(e: OpenDBError) -> Self {
-        match e {
-            OpenDBError::InvalidStates(s) => CreateDBError::OpenFailed(s),
-        }
-    }
-}
-
 impl From<std::io::Error> for ConstDBError {
     fn from(e: std::io::Error) -> Self {
         ConstDBError::InvalidStates(format!("io error: {}", e))
@@ -58,5 +36,11 @@ impl From<std::io::Error> for ConstDBError {
 impl From<rocksdb::Error> for ConstDBError {
     fn from(e: rocksdb::Error) -> Self {
         ConstDBError::InvalidStates(format!("rocksdb failed: {}", e))
+    }
+}
+
+impl From<serde_json::Error> for ConstDBError {
+    fn from(e: serde_json::Error) -> Self {
+        ConstDBError::InvalidStates(format!("serialization failed: {}", e))
     }
 }

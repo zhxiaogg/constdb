@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs, path::Path};
 use rocksdb::{ColumnFamilyDescriptor, Direction, Options, ReadOptions, DB};
 
 use self::{
-    api::{CreateTableInput, DBItem},
+    api::{CreateTableInput, DBItem, TableItem},
     errors::ConstDBError,
 };
 
@@ -50,10 +50,17 @@ impl DBInfo {
     pub fn open_rocks_db(&mut self) -> Result<(), ConstDBError> {
         let rocks_db_path = Path::new(self.root.as_str()).join("bin.db");
         let opts = Options::default();
-        let cfs = DB::list_cf(&opts, rocks_db_path.clone())?
-            .into_iter()
-            .map(|cf_name| ColumnFamilyDescriptor::new(cf_name, Options::default()));
-        self.rocks_db = Some(DB::open_cf_descriptors(&opts, rocks_db_path, cfs)?);
+        match fs::try_exists(rocks_db_path.clone()) {
+            Ok(true) => {
+                let cfs = DB::list_cf(&opts, rocks_db_path.clone())?
+                    .into_iter()
+                    .map(|cf_name| ColumnFamilyDescriptor::new(cf_name, Options::default()));
+                self.rocks_db = Some(DB::open_cf_descriptors(&opts, rocks_db_path, cfs)?);
+            }
+            _ => {
+                self.rocks_db = Some(DB::open_default(rocks_db_path)?);
+            }
+        }
         Ok(())
     }
 
@@ -82,7 +89,7 @@ impl ConstDB {
         );
         for try_db_name in tables
             .into_iter()
-            .map(|(k, _v)| SystemKeys::as_db_meta_key(k.as_ref()))
+            .map(|(k, _v)| SystemKeys::parse_db_meta_key(k.as_ref()))
         {
             if !try_db_name.is_ok() {
                 break;
@@ -130,6 +137,33 @@ impl ConstDB {
         Ok(())
     }
 
+    pub fn list_table(&self, db_name: &str) -> Result<Vec<TableItem>, ConstDBError> {
+        if !self.db_exists(db_name) {
+            return Err(ConstDBError::NotFound(format!(
+                "db [{}] not found!",
+                db_name
+            )));
+        }
+
+        let system_db = self.system_db()?;
+        let prefix_key = SystemKeys::table_meta_prefix(db_name);
+        let prefix = prefix_key.as_key();
+        let table_meta_iter = system_db.rocks_db()?.iterator(rocksdb::IteratorMode::From(
+            prefix.as_ref(),
+            Direction::Forward,
+        ));
+        let mut table_items = Vec::new();
+        for (k, v) in table_meta_iter {
+            let try_table_meta_key = SystemKeys::parse_table_meta_key(k.as_ref());
+            if !try_table_meta_key.is_ok() {
+                break;
+            }
+            let table_item: TableItem = serde_json::from_slice(v.as_ref())?;
+            table_items.push(table_item);
+        }
+        Ok(table_items)
+    }
+
     pub fn list_db(&self) -> Result<Vec<DBItem>, ConstDBError> {
         Ok(self
             .dbs
@@ -158,10 +192,14 @@ impl ConstDB {
         let db = self.dbs.get_mut(db_name).unwrap();
         db.create_table(input)?;
         let system_db = self.system_db()?;
-        // TODO: set table info as value
+        let table_item = TableItem {
+            name: input.name.to_owned(),
+            partition_keys: input.partition_keys.clone(),
+            sort_keys: input.sort_keys.clone(),
+        };
         system_db.rocks_db()?.put(
             SystemKeys::table_meta_key(db_name, input.name.as_str()).as_key(),
-            "",
+            serde_json::to_vec(&table_item)?,
         )?;
         Ok(())
     }
