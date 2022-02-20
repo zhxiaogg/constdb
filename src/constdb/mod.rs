@@ -1,10 +1,10 @@
 use std::{collections::HashMap, fs, path::Path};
 
-use rocksdb::{Options, DB};
+use rocksdb::{ColumnFamilyDescriptor, Direction, Options, ReadOptions, DB};
 
 use self::{
-    api::CreateTableInput,
-    errors::{ConstDBError},
+    api::{CreateTableInput, DBItem},
+    errors::ConstDBError,
 };
 
 mod modeling;
@@ -49,7 +49,11 @@ impl DBInfo {
 
     pub fn open_rocks_db(&mut self) -> Result<(), ConstDBError> {
         let rocks_db_path = Path::new(self.root.as_str()).join("bin.db");
-        self.rocks_db = Some(DB::open_default(rocks_db_path)?);
+        let opts = Options::default();
+        let cfs = DB::list_cf(&opts, rocks_db_path.clone())?
+            .into_iter()
+            .map(|cf_name| ColumnFamilyDescriptor::new(cf_name, Options::default()));
+        self.rocks_db = Some(DB::open_cf_descriptors(&opts, rocks_db_path, cfs)?);
         Ok(())
     }
 
@@ -69,6 +73,26 @@ impl ConstDB {
             settings,
         };
         let system_db = db.open("system")?;
+
+        let read_opts = ReadOptions::default();
+        let prefix = SystemKeys::DBMetaPrefix.as_key();
+        let tables = system_db.rocks_db()?.iterator_opt(
+            rocksdb::IteratorMode::From(prefix.as_ref(), Direction::Forward),
+            read_opts,
+        );
+        for try_db_name in tables
+            .into_iter()
+            .map(|(k, _v)| SystemKeys::as_db_meta_key(k.as_ref()))
+        {
+            if !try_db_name.is_ok() {
+                break;
+            }
+            let db_name = try_db_name?;
+            println!("found db [{}]...", db_name);
+            let d = db.open(db_name.as_ref())?;
+            db.dbs.insert(db_name, d);
+        }
+
         db.dbs.insert("system".to_owned(), system_db);
         Ok(db)
     }
@@ -100,7 +124,18 @@ impl ConstDB {
         }
         let db = self.open(name)?;
         self.dbs.insert(name.to_owned(), db);
+        self.system_db()?
+            .rocks_db()?
+            .put(SystemKeys::db_meta_key(name).as_key(), "")?;
         Ok(())
+    }
+
+    pub fn list_db(&self) -> Result<Vec<DBItem>, ConstDBError> {
+        Ok(self
+            .dbs
+            .iter()
+            .map(|(k, _)| DBItem::new(k.as_str()))
+            .collect())
     }
 
     pub fn create_table(
