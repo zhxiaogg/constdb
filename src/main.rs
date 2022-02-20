@@ -2,14 +2,16 @@
 pub mod constdb;
 use std::sync::Arc;
 
-use crate::constdb::api::*;
+mod handlers;
 
 use constdb::{ConstDB, Settings};
+use handlers::database::{create_db_route, list_db_route};
+use handlers::table::{create_table_route, list_table_route};
 use tokio::sync::RwLock;
-use warp::hyper::StatusCode;
-use warp::reply::{json, with_status};
+
+
 use warp::Filter;
-use warp::{self, Reply};
+use warp;
 
 use clap::Parser;
 
@@ -41,96 +43,4 @@ async fn main() {
     warp::serve(index_route.or(api_routes))
         .run(([0, 0, 0, 0], 8000))
         .await
-}
-
-fn list_db_route(
-    db: &Arc<RwLock<ConstDB>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let const_db = Arc::clone(db);
-    warp::path::end().and(warp::get()).then(move || {
-        let const_db = Arc::clone(&const_db);
-        async move {
-            let cdb = const_db.read().await;
-            let result = cdb.list_db();
-            match result {
-                Ok(dbs) => with_status(json(&dbs), StatusCode::OK).into_response(),
-                Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
-            }
-        }
-    })
-}
-fn list_table_route(
-    db: &Arc<RwLock<ConstDB>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let const_db = Arc::clone(db);
-    warp::path!(String / "tables")
-        .and(warp::path::end())
-        .and(warp::get())
-        .then(move |db_name: String| {
-            let const_db = Arc::clone(&const_db);
-            async move {
-                let cdb = const_db.read().await;
-                let result = cdb.list_table(db_name.as_str());
-                match result {
-                    Ok(tables) => with_status(json(&tables), StatusCode::OK).into_response(),
-                    Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
-                }
-            }
-        })
-}
-
-fn create_db_route(
-    db: &Arc<RwLock<ConstDB>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let const_db = Arc::clone(db);
-    warp::path::end()
-        .and(warp::post())
-        .and(warp::body::json())
-        .then(move |create_db_input: CreateDBInput| {
-            println!("creating db [{}]...", create_db_input.name);
-            let const_db = Arc::clone(&const_db);
-            async move {
-                let mut cdb = const_db.write().await;
-                let result = cdb.create_db(create_db_input.name.as_str());
-                match result {
-                    Ok(_) => {
-                        let output = CreateDBOutput {
-                            name: create_db_input.name.to_string(),
-                        };
-                        with_status(json(&output), StatusCode::CREATED).into_response()
-                    }
-                    Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
-                }
-            }
-        })
-}
-
-fn create_table_route(
-    db: &Arc<RwLock<ConstDB>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let const_db = Arc::clone(db);
-    warp::path!(String / "tables")
-        .and(warp::path::end())
-        .and(warp::post())
-        .and(warp::body::json())
-        .then(move |db_name: String, new_table_input: CreateTableInput| {
-            println!(
-                "create table [{}] under db [{}]",
-                new_table_input.name, db_name
-            );
-            let const_db = Arc::clone(&const_db);
-            async move {
-                let mut db = const_db.write().await;
-                let result = db.create_table(db_name.as_str(), &new_table_input);
-                match result {
-                    Ok(()) => {
-                        let output = CreateTableOutput {
-                            name: new_table_input.name.to_string(),
-                        };
-                        with_status(warp::reply::json(&output), StatusCode::CREATED).into_response()
-                    }
-                    Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
-                }
-            }
-        })
 }
