@@ -8,8 +8,9 @@ use warp::hyper::body::Bytes;
 
 use crate::protos::constdb_model::TableSettings;
 
-use self::{api::DBItem, errors::ConstDBError};
+use self::{api::DBItem, db::DBInstance, errors::ConstDBError};
 
+mod db;
 mod modeling;
 use modeling::*;
 
@@ -22,58 +23,8 @@ pub struct Settings {
 }
 
 pub struct ConstDB {
-    dbs: HashMap<String, DBInfo>,
+    dbs: HashMap<String, DBInstance>,
     settings: Settings,
-}
-
-pub struct DBInfo {
-    name: String,
-    root: String,
-    rocks_db: Option<DB>,
-}
-
-impl DBInfo {
-    pub fn rocks_db(&self) -> Result<&DB, ConstDBError> {
-        self.rocks_db.as_ref().ok_or(ConstDBError::InvalidStates(
-            "rocks db not initialized!".to_owned(),
-        ))
-    }
-
-    pub fn create_table(&mut self, input: &TableSettings) -> Result<(), ConstDBError> {
-        if self.rocks_db.is_none() {
-            self.open_rocks_db()?;
-        }
-        let rocks_db = self.rocks_db.as_mut().unwrap();
-        let opts = Options::default();
-        // TODO: check if cf already exists
-        rocks_db.create_cf(input.name.as_str(), &opts)?;
-        Ok(())
-    }
-
-    pub fn open_rocks_db(&mut self) -> Result<(), ConstDBError> {
-        let rocks_db_path = Path::new(self.root.as_str()).join("bin.db");
-        let opts = Options::default();
-        match fs::try_exists(rocks_db_path.clone()) {
-            Ok(true) => {
-                let cfs = DB::list_cf(&opts, rocks_db_path.clone())?
-                    .into_iter()
-                    .map(|cf_name| ColumnFamilyDescriptor::new(cf_name, Options::default()));
-                self.rocks_db = Some(DB::open_cf_descriptors(&opts, rocks_db_path, cfs)?);
-            }
-            _ => {
-                self.rocks_db = Some(DB::open_default(rocks_db_path)?);
-            }
-        }
-        Ok(())
-    }
-
-    pub fn try_open_rocks_db(&mut self) -> Result<(), ConstDBError> {
-        let rocks_db_path = Path::new(self.root.as_str()).join("bin.db");
-        if fs::try_exists(rocks_db_path)? {
-            self.open_rocks_db()?;
-        }
-        Ok(())
-    }
 }
 
 impl ConstDB {
@@ -107,7 +58,7 @@ impl ConstDB {
         Ok(db)
     }
 
-    fn system_db(&self) -> Result<&DBInfo, ConstDBError> {
+    fn system_db(&self) -> Result<&DBInstance, ConstDBError> {
         self.dbs.get("system").ok_or(ConstDBError::InvalidStates(
             "cannot find [system] db".to_owned(),
         ))
@@ -293,15 +244,10 @@ impl ConstDB {
         Ok(())
     }
 
-    fn open(&self, name: &str) -> Result<DBInfo, ConstDBError> {
+    fn open(&self, name: &str) -> Result<DBInstance, ConstDBError> {
         let path = Path::new(self.settings.root.as_str()).join(name);
         std::fs::create_dir_all(&path)?;
-        let mut db = DBInfo {
-            name: name.to_owned(),
-            root: path.to_str().unwrap().to_owned(),
-            rocks_db: None,
-        };
-
+        let mut db = DBInstance::new(name, path.to_str().unwrap());
         if "system".eq_ignore_ascii_case(name) {
             db.open_rocks_db()?;
         } else {
