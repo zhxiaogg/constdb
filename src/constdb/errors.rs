@@ -47,3 +47,9 @@ impl From<serde_json::Error> for ConstDBError {
         ConstDBError::InvalidStates(format!("serialization failed: {}", e))
     }
 }
+
+impl From<protobuf::Error> for ConstDBError {
+    fn from(e: protobuf::Error) -> Self {
+        ConstDBError::InvalidStates(format!("protobuf serialization failed: {}", e))
+    }
+}

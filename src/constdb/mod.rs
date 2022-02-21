@@ -1,14 +1,14 @@
 use core::panic;
 use std::{collections::HashMap, fs, path::Path};
 
+use protobuf::Message;
 use rocksdb::{ColumnFamilyDescriptor, Direction, Options, ReadOptions, DB};
 use serde_json::Value;
 use warp::hyper::body::Bytes;
 
-use self::{
-    api::{CreateTableInput, DBItem, TableItem},
-    errors::ConstDBError,
-};
+use crate::protos::constdb_model::TableSettings;
+
+use self::{api::DBItem, errors::ConstDBError};
 
 mod modeling;
 use modeling::*;
@@ -39,7 +39,7 @@ impl DBInfo {
         ))
     }
 
-    pub fn create_table(&mut self, input: &CreateTableInput) -> Result<(), ConstDBError> {
+    pub fn create_table(&mut self, input: &TableSettings) -> Result<(), ConstDBError> {
         if self.rocks_db.is_none() {
             self.open_rocks_db()?;
         }
@@ -140,7 +140,11 @@ impl ConstDB {
         Ok(())
     }
 
-    pub fn get_table(&self, db_name: &str, table_name: &str) -> Result<TableItem, ConstDBError> {
+    pub fn get_table(
+        &self,
+        db_name: &str,
+        table_name: &str,
+    ) -> Result<TableSettings, ConstDBError> {
         if !self.db_exists(db_name) {
             return Err(ConstDBError::NotFound(format!(
                 "db [{}] not found!",
@@ -155,11 +159,11 @@ impl ConstDB {
                 "table not exists [{}.{}]!",
                 db_name, table_name
             ))),
-            Some(value) => Ok(serde_json::from_slice(&value)?),
+            Some(value) => Ok(TableSettings::parse_from_bytes(&value)?),
         }
     }
 
-    pub fn list_table(&self, db_name: &str) -> Result<Vec<TableItem>, ConstDBError> {
+    pub fn list_table(&self, db_name: &str) -> Result<Vec<TableSettings>, ConstDBError> {
         if !self.db_exists(db_name) {
             return Err(ConstDBError::NotFound(format!(
                 "db [{}] not found!",
@@ -180,8 +184,8 @@ impl ConstDB {
             if !try_table_meta_key.is_ok() {
                 break;
             }
-            let table_item: TableItem = serde_json::from_slice(v.as_ref())?;
-            table_items.push(table_item);
+            let settings = TableSettings::parse_from_bytes(v.as_ref())?;
+            table_items.push(settings);
         }
         Ok(table_items)
     }
@@ -197,7 +201,7 @@ impl ConstDB {
     pub fn create_table(
         &mut self,
         db_name: &str,
-        input: &CreateTableInput,
+        input: &TableSettings,
     ) -> Result<(), ConstDBError> {
         if !self.db_exists(db_name) {
             return Err(ConstDBError::NotFound(format!(
@@ -214,14 +218,9 @@ impl ConstDB {
         let db = self.dbs.get_mut(db_name).unwrap();
         db.create_table(input)?;
         let system_db = self.system_db()?;
-        let table_item = TableItem {
-            name: input.name.to_owned(),
-            partition_keys: input.partition_keys.clone(),
-            sort_keys: input.sort_keys.clone(),
-        };
         system_db.rocks_db()?.put(
             SystemKeys::table_meta_key(db_name, input.name.as_str()).as_key(),
-            serde_json::to_vec(&table_item)?,
+            input.write_to_bytes()?,
         )?;
         Ok(())
     }

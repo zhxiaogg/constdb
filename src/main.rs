@@ -3,7 +3,8 @@ pub mod constdb;
 use std::sync::Arc;
 
 mod handlers;
-
+mod protos;
+mod utils;
 use constdb::{ConstDB, Settings};
 use handlers::database::{create_db_route, list_db_route};
 use handlers::dml::{table_get_by_key, table_insert};

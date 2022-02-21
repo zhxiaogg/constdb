@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::constdb::{api::*, ConstDB};
+use crate::protos::constdb_model::TableSettings;
 
 use tokio::sync::RwLock;
 use warp::hyper::StatusCode;
@@ -36,7 +37,7 @@ pub fn create_table_route(
         .and(warp::path::end())
         .and(warp::post())
         .and(warp::body::json())
-        .then(move |db_name: String, new_table_input: CreateTableInput| {
+        .then(move |db_name: String, new_table_input: TableSettings| {
             println!(
                 "create table [{}] under db [{}]",
                 new_table_input.name, db_name
