@@ -5,6 +5,8 @@ use crate::protos::constdb_model::TableSettings;
 use serde_json::{Map, Value};
 use warp::hyper::body::Bytes;
 
+use super::PrimaryKey;
+
 pub struct SchemaHelper {
     table_settings: TableSettings,
 }
@@ -15,7 +17,7 @@ impl SchemaHelper {
     }
 
     /// extract&build primary key from input data
-    pub fn build_pk_from_json(&self, data: &Bytes) -> Result<Vec<u8>, ConstDBError> {
+    pub fn build_pk_from_json(&self, data: &Bytes) -> Result<PrimaryKey, ConstDBError> {
         let json_object = serde_json::from_slice(data)
             .map_err(|e| ConstDBError::from(e))
             .and_then(|json| match json {
@@ -35,16 +37,17 @@ impl SchemaHelper {
             pk.push(bytes);
         }
 
-        Ok(pk.into_iter().fold(Vec::new(), |mut r, bytes| {
+        let bytes = pk.into_iter().fold(Vec::new(), |mut r, bytes| {
             r.extend(bytes);
             r
-        }))
+        });
+        Ok(PrimaryKey::Complete(bytes))
     }
 
     pub fn build_pk_from_params(
         &self,
         params: &HashMap<String, String>,
-    ) -> Result<Vec<u8>, ConstDBError> {
+    ) -> Result<PrimaryKey, ConstDBError> {
         let mut pk = Vec::new();
         for k in &self.table_settings.partition_keys {
             let bytes = SchemaHelper::read_pk_field_from_params(&params, k.as_str())?;
@@ -52,14 +55,23 @@ impl SchemaHelper {
         }
 
         for k in &self.table_settings.sort_keys {
-            let bytes = SchemaHelper::read_pk_field_from_params(&params, k.name.as_str())?;
-            pk.push(bytes);
+            let bytes = SchemaHelper::read_pk_field_from_params(&params, k.name.as_str()).ok();
+            if bytes.is_none() {
+                break;
+            }
+            pk.push(bytes.unwrap());
         }
 
-        Ok(pk.into_iter().fold(Vec::new(), |mut r, bytes| {
-            r.extend(bytes);
+        let bytes = pk.iter().fold(Vec::new(), |mut r, bytes| {
+            r.extend(*bytes);
             r
-        }))
+        });
+        match pk.len()
+            < self.table_settings.partition_keys.len() + self.table_settings.sort_keys.len()
+        {
+            true => Ok(PrimaryKey::Prefix(bytes)),
+            false => Ok(PrimaryKey::Complete(bytes)),
+        }
     }
 
     fn read_pk_field_from_params<'a>(

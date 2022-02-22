@@ -44,7 +44,7 @@ pub fn table_get_by_key(
                 let const_db = Arc::clone(&const_db);
                 async move {
                     let cdb = const_db.read().await;
-                    let result = cdb.get_by_key(db_name.as_str(), table_name.as_str(), params);
+                    let result = cdb.query_by_key(db_name.as_str(), table_name.as_str(), params);
                     match result {
                         Ok(v) => with_header(
                             with_status(v, StatusCode::OK),

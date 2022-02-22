@@ -10,7 +10,9 @@ use self::{api::DBItem, db::DBInstance, errors::ConstDBError, schema::SchemaHelp
 
 mod db;
 mod modeling;
+mod pk;
 use modeling::*;
+pub use pk::*;
 
 pub mod api;
 pub mod errors;
@@ -178,7 +180,7 @@ impl ConstDB {
         Ok(())
     }
 
-    pub fn get_by_key(
+    pub fn query_by_key(
         &self,
         db_name: &str,
         table_name: &str,
@@ -186,18 +188,48 @@ impl ConstDB {
     ) -> Result<String, ConstDBError> {
         let table = self.get_table(db_name, table_name)?;
         let schema = SchemaHelper::new(table);
-        let pkey = schema.build_pk_from_params(&params)?;
+        let pk = schema.build_pk_from_params(&params)?;
         let db = self.dbs.get(db_name).ok_or(ConstDBError::NotFound(format!(
             "database [{}] not found.",
             db_name
         )))?;
 
-        let opt_value = db.rocks_db()?.get(pkey)?;
-        match opt_value {
-            Some(v) => Ok(String::from_utf8(v).unwrap()),
-            None => Err(ConstDBError::NotFound("key not found!".to_owned())),
+        match pk {
+            PrimaryKey::Prefix(prefix) => {
+                let mode = rocksdb::IteratorMode::From(prefix.as_slice(), Direction::Forward);
+                let mut read_opts = ReadOptions::default();
+                Self::build_upper_bound(&prefix)
+                    .into_iter()
+                    .for_each(|upper_key| read_opts.set_iterate_upper_bound(upper_key));
+                let rows_iter = db.rocks_db()?.iterator_opt(mode, read_opts);
+                let mut rows = Vec::new();
+                for (_k, v) in rows_iter {
+                    rows.push(String::from_utf8(v.into()).unwrap());
+                }
+                Ok(format!("[{}]", rows.join(",")))
+            }
+            PrimaryKey::Complete(key) => {
+                let opt_value = db.rocks_db()?.get(key)?;
+                match opt_value {
+                    Some(v) => Ok(String::from_utf8(v).unwrap()),
+                    None => Err(ConstDBError::NotFound("key not found!".to_owned())),
+                }
+            }
         }
     }
+
+    fn build_upper_bound(prefix: &Vec<u8>) -> Option<Vec<u8>> {
+        for pos in (0..prefix.len()).rev() {
+            let v = &prefix[pos];
+            if *v != 0xFF {
+                let mut stop_key = prefix.clone();
+                stop_key[pos] = v + 1;
+                return Some(stop_key);
+            }
+        }
+        None
+    }
+
     pub fn insert(&self, db_name: &str, table_name: &str, data: Bytes) -> Result<(), ConstDBError> {
         let table = self.get_table(db_name, table_name)?;
         let schema = SchemaHelper::new(table);
@@ -207,7 +239,7 @@ impl ConstDB {
             db_name
         )))?;
 
-        let _table = db.rocks_db()?.put(primary_key, &data)?;
+        db.rocks_db()?.put(primary_key.complete()?, &data)?;
         Ok(())
     }
 
