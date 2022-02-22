@@ -1,14 +1,12 @@
-use core::panic;
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, path::Path};
 
 use protobuf::Message;
-use rocksdb::{ColumnFamilyDescriptor, Direction, Options, ReadOptions, DB};
-use serde_json::Value;
+use rocksdb::{Direction, ReadOptions};
 use warp::hyper::body::Bytes;
 
-use crate::protos::constdb_model::TableSettings;
+use crate::protos::constdb_model::{DBSettings, TableSettings};
 
-use self::{api::DBItem, db::DBInstance, errors::ConstDBError};
+use self::{api::DBItem, db::DBInstance, errors::ConstDBError, schema::SchemaHelper};
 
 mod db;
 mod modeling;
@@ -16,6 +14,7 @@ use modeling::*;
 
 pub mod api;
 pub mod errors;
+mod schema;
 
 /// ConstDB settings
 pub struct Settings {
@@ -85,9 +84,12 @@ impl ConstDB {
         }
         let db = self.open(name)?;
         self.dbs.insert(name.to_owned(), db);
-        self.system_db()?
-            .rocks_db()?
-            .put(SystemKeys::db_meta_key(name).as_key(), "")?;
+        let mut db_settings = DBSettings::new();
+        db_settings.name = name.to_owned();
+        self.system_db()?.rocks_db()?.put(
+            SystemKeys::db_meta_key(name).as_key(),
+            db_settings.write_to_bytes()?,
+        )?;
         Ok(())
     }
 
@@ -183,19 +185,8 @@ impl ConstDB {
         params: HashMap<String, String>,
     ) -> Result<String, ConstDBError> {
         let table = self.get_table(db_name, table_name)?;
-        let pkey = table
-            .partition_keys
-            .iter()
-            .map(|k| params.get(k))
-            .map(|v| match v {
-                Some(v) => v.to_owned(),
-                None => "".to_owned(),
-            })
-            .fold(String::new(), |mut s, v| {
-                s.push_str(v.as_ref());
-                s
-            });
-
+        let schema = SchemaHelper::new(table);
+        let pkey = schema.build_pk_from_params(&params)?;
         let db = self.dbs.get(db_name).ok_or(ConstDBError::NotFound(format!(
             "database [{}] not found.",
             db_name
@@ -208,33 +199,9 @@ impl ConstDB {
         }
     }
     pub fn insert(&self, db_name: &str, table_name: &str, data: Bytes) -> Result<(), ConstDBError> {
-        let v: Value = serde_json::from_slice(&data).map_err(|e| {
-            ConstDBError::InvalidArguments(format!("cannot deserialize request body: {}", e))
-        })?;
-        let try_primary_key = match v {
-            Value::Object(object) => {
-                let table = self.get_table(db_name, table_name)?;
-                let primary_key = table
-                    .partition_keys
-                    .iter()
-                    .map(|k| object.get(k))
-                    .map(|v| match v {
-                        None => "".to_owned(),
-                        Some(Value::String(v)) => v.to_owned(),
-                        Some(_) => panic!("TODO: not supported value type"),
-                    })
-                    .fold(String::new(), |mut s, v| {
-                        s.push_str(v.as_ref());
-                        s
-                    });
-                Ok(primary_key)
-            }
-            _ => Err(ConstDBError::InvalidArguments(
-                "only json object are supported by now.".to_owned(),
-            )),
-        };
-
-        let primary_key = try_primary_key?;
+        let table = self.get_table(db_name, table_name)?;
+        let schema = SchemaHelper::new(table);
+        let primary_key = schema.build_pk_from_json(&data)?;
         let db = self.dbs.get(db_name).ok_or(ConstDBError::NotFound(format!(
             "database [{}] not found.",
             db_name
