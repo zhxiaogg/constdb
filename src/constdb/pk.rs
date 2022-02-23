@@ -17,7 +17,7 @@ impl PrimaryKey {
     pub fn complete(&self) -> Result<&[u8], ConstDBError> {
         match self {
             PrimaryKey::Complete(bytes) => Ok(bytes.as_slice()),
-            PrimaryKey::Prefix(bytes) => Err(ConstDBError::InvalidArguments(
+            PrimaryKey::Prefix(_) => Err(ConstDBError::InvalidArguments(
                 "primary key not complete".to_owned(),
             )),
         }
