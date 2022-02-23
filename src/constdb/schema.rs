@@ -16,16 +16,53 @@ impl SchemaHelper {
         SchemaHelper { table_settings }
     }
 
-    /// extract&build primary key from input data
-    pub fn build_pk_from_json(&self, data: &Bytes) -> Result<PrimaryKey, ConstDBError> {
-        let json_object = serde_json::from_slice(data)
+    pub fn update(&self, old: &[u8], patch: &[u8]) -> Result<Vec<u8>, ConstDBError> {
+        let mut old_object = Self::get_json_object(old)?;
+        let patch_object = Self::get_json_object(patch)?;
+
+        // validate to make sure no parition/sort field are about to be updated
+        let will_update_pk = self
+            .table_settings
+            .partition_keys
+            .iter()
+            .find(|k| patch_object.contains_key(*k));
+        if will_update_pk.is_some() {
+            return Err(ConstDBError::InvalidArguments(
+                "cannot update partition key fields.".to_owned(),
+            ));
+        }
+        let will_update_sk = self
+            .table_settings
+            .sort_keys
+            .iter()
+            .find(|k| patch_object.contains_key(&k.name));
+        if will_update_sk.is_some() {
+            return Err(ConstDBError::InvalidArguments(
+                "cannot update sort key fields.".to_owned(),
+            ));
+        }
+
+        // updating
+        for (k, v) in patch_object {
+            old_object.insert(k, v);
+        }
+
+        Ok(serde_json::to_string(&old_object)?.into_bytes())
+    }
+
+    fn get_json_object(data: &[u8]) -> Result<Map<String, Value>, ConstDBError> {
+        serde_json::from_slice(data)
             .map_err(|e| ConstDBError::from(e))
             .and_then(|json| match json {
                 Value::Object(object) => Ok(object),
                 _ => Err(ConstDBError::InvalidArguments(
                     "only json object are supported!".to_owned(),
                 )),
-            })?;
+            })
+    }
+    /// extract&build primary key from input data
+    pub fn build_pk_from_json(&self, data: &Bytes) -> Result<PrimaryKey, ConstDBError> {
+        let json_object = Self::get_json_object(data)?;
         let mut pk = Vec::new();
         for k in &self.table_settings.partition_keys {
             let bytes = SchemaHelper::read_pk_field_from_json(&json_object, k.as_str())?;

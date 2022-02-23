@@ -81,3 +81,30 @@ pub fn table_delete(
             },
         )
 }
+
+pub fn table_update(
+    db: &Arc<RwLock<ConstDB>>,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    let const_db = Arc::clone(db);
+    warp::path!(String / "tables" / String)
+        .and(warp::path::end())
+        .and(warp::put())
+        .and(warp::body::bytes())
+        .and(warp::query())
+        .then(
+            move |db_name: String,
+                  table_name: String,
+                  bytes: Bytes,
+                  params: HashMap<String, String>| {
+                let const_db = Arc::clone(&const_db);
+                async move {
+                    let cdb = const_db.read().await;
+                    let result = cdb.update(db_name.as_str(), table_name.as_str(), bytes, params);
+                    match result {
+                        Ok(()) => StatusCode::OK.into_response(),
+                        Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
+                    }
+                }
+            },
+        )
+}

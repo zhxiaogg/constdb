@@ -241,6 +241,32 @@ impl ConstDB {
         Ok(())
     }
 
+    pub fn update(
+        &self,
+        db_name: &str,
+        table_name: &str,
+        data: Bytes,
+        params: HashMap<String, String>,
+    ) -> Result<(), ConstDBError> {
+        let table = self.get_table(db_name, table_name)?;
+        let schema = SchemaHelper::new(table);
+        let primary_key = schema.build_pk_from_params(&params)?;
+        let db = self.dbs.get(db_name).ok_or(ConstDBError::NotFound(format!(
+            "database [{}] not found.",
+            db_name
+        )))?;
+
+        let pk = primary_key.complete()?;
+        let table = db.rocks_db_for_table(table_name)?;
+        let rocks_db = db.rocks_db()?;
+        let existing = rocks_db
+            .get_cf(table, pk)?
+            .ok_or(ConstDBError::NotFound(format!("data not found!")))?;
+        let updated = schema.update(&existing, &data)?;
+        rocks_db.put_cf(table, pk, updated)?;
+        Ok(())
+    }
+
     pub fn delete(
         &self,
         db_name: &str,
