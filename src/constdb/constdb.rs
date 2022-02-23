@@ -241,6 +241,25 @@ impl ConstDB {
         Ok(())
     }
 
+    pub fn delete(
+        &self,
+        db_name: &str,
+        table_name: &str,
+        params: HashMap<String, String>,
+    ) -> Result<(), ConstDBError> {
+        let table = self.get_table(db_name, table_name)?;
+        let schema = SchemaHelper::new(table);
+        let primary_key = schema.build_pk_from_params(&params)?;
+        let db = self.dbs.get(db_name).ok_or(ConstDBError::NotFound(format!(
+            "database [{}] not found.",
+            db_name
+        )))?;
+
+        let table = db.rocks_db_for_table(table_name)?;
+        db.rocks_db()?.delete_cf(table, primary_key.complete()?)?;
+        Ok(())
+    }
+
     fn open(&self, name: &str) -> Result<DBInstance, ConstDBError> {
         let path = Path::new(self.settings.root.as_str()).join(name);
         std::fs::create_dir_all(&path)?;

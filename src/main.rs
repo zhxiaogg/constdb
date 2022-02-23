@@ -7,7 +7,7 @@ mod protos;
 mod utils;
 use constdb::{ConstDB, Settings};
 use handlers::database::{create_db_route, list_db_route};
-use handlers::dml::{table_get_by_key, table_insert};
+use handlers::dml::{table_delete, table_get_by_key, table_insert};
 use handlers::table::{create_table_route, list_table_route};
 use tokio::sync::RwLock;
 
@@ -36,7 +36,8 @@ async fn main() {
     let index_route = warp::path::end().map(|| "Hello, ConstDB!");
 
     let table_insert = table_insert(&const_db);
-    let table_get_by_key = table_get_by_key(&const_db);
+    let table_query_by_key = table_get_by_key(&const_db);
+    let table_delete = table_delete(&const_db);
     let list_table = list_table_route(&const_db);
     let create_table = create_table_route(&const_db);
     let list_db = list_db_route(&const_db);
@@ -47,7 +48,8 @@ async fn main() {
             .or(create_table)
             .or(list_table)
             .or(table_insert)
-            .or(table_get_by_key),
+            .or(table_query_by_key)
+            .or(table_delete),
     );
     let api_routes = warp::path!("api" / "v1" / ..).and(ddl_dml_routes);
     warp::serve(index_route.or(api_routes))
