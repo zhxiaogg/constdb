@@ -22,7 +22,7 @@ pub struct ConstDB {
 }
 
 impl ConstDB {
-    pub fn create(settings: Settings) -> Result<Self, ConstDBError> {
+    pub fn new(settings: Settings) -> Result<Self, ConstDBError> {
         let mut db = ConstDB {
             dbs: HashMap::new(),
             settings,
@@ -52,6 +52,7 @@ impl ConstDB {
         Ok(db)
     }
 
+    /// get the system db
     fn system_db(&self) -> Result<&DBInstance, ConstDBError> {
         self.dbs.get("system").ok_or(ConstDBError::InvalidStates(
             "cannot find [system] db".to_owned(),
@@ -189,12 +190,13 @@ impl ConstDB {
 
         match pk {
             PrimaryKey::Prefix(prefix) => {
-                let mode = rocksdb::IteratorMode::From(prefix.as_slice(), Direction::Forward);
+                let iter_mode = rocksdb::IteratorMode::From(prefix.as_slice(), Direction::Forward);
                 let mut read_opts = ReadOptions::default();
                 Self::build_upper_bound(&prefix)
                     .into_iter()
                     .for_each(|upper_key| read_opts.set_iterate_upper_bound(upper_key));
-                let rows_iter = db.rocks_db()?.iterator_opt(mode, read_opts);
+                let table = db.rocks_db_for_table(table_name)?;
+                let rows_iter = db.rocks_db()?.iterator_cf_opt(table, read_opts, iter_mode);
                 let mut rows = Vec::new();
                 for (_k, v) in rows_iter {
                     rows.push(String::from_utf8(v.into()).unwrap());
@@ -202,7 +204,8 @@ impl ConstDB {
                 Ok(format!("[{}]", rows.join(",")))
             }
             PrimaryKey::Complete(key) => {
-                let opt_value = db.rocks_db()?.get(key)?;
+                let table = db.rocks_db_for_table(table_name)?;
+                let opt_value = db.rocks_db()?.get_cf(table, key)?;
                 match opt_value {
                     Some(v) => Ok(String::from_utf8(v).unwrap()),
                     None => Err(ConstDBError::NotFound("key not found!".to_owned())),
@@ -232,7 +235,9 @@ impl ConstDB {
             db_name
         )))?;
 
-        db.rocks_db()?.put(primary_key.complete()?, &data)?;
+        let table = db.rocks_db_for_table(table_name)?;
+        db.rocks_db()?
+            .put_cf(table, primary_key.complete()?, &data)?;
         Ok(())
     }
 

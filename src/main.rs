@@ -31,7 +31,7 @@ async fn main() {
     let settings = Settings {
         root: args.root.to_string(),
     };
-    let const_db = Arc::new(RwLock::new(ConstDB::create(settings).unwrap()));
+    let const_db = Arc::new(RwLock::new(ConstDB::new(settings).unwrap()));
 
     let index_route = warp::path::end().map(|| "Hello, ConstDB!");
 

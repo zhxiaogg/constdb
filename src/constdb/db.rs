@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use rocksdb::{ColumnFamilyDescriptor, Options, DB};
+use rocksdb::{ColumnFamily, ColumnFamilyDescriptor, Options, DB};
 
 use crate::protos::constdb_model::TableSettings;
 
@@ -25,6 +25,15 @@ impl DBInstance {
         self.rocks_db.as_ref().ok_or(ConstDBError::InvalidStates(
             "rocks db not initialized!".to_owned(),
         ))
+    }
+
+    pub fn rocks_db_for_table(&self, table_name: &str) -> Result<&ColumnFamily, ConstDBError> {
+        self.rocks_db()?
+            .cf_handle(table_name)
+            .ok_or(ConstDBError::InvalidStates(format!(
+                "cannot find table for {}",
+                table_name
+            )))
     }
 
     pub fn create_table(&mut self, input: &TableSettings) -> Result<(), ConstDBError> {
