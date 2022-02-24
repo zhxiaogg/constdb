@@ -23,22 +23,12 @@ impl SchemaHelper {
         // validate to make sure no parition/sort field are about to be updated
         let will_update_pk = self
             .table_settings
-            .partition_keys
+            .primary_keys
             .iter()
             .find(|k| patch_object.contains_key(*k));
         if will_update_pk.is_some() {
             return Err(ConstDBError::InvalidArguments(
-                "cannot update partition key fields.".to_owned(),
-            ));
-        }
-        let will_update_sk = self
-            .table_settings
-            .sort_keys
-            .iter()
-            .find(|k| patch_object.contains_key(&k.name));
-        if will_update_sk.is_some() {
-            return Err(ConstDBError::InvalidArguments(
-                "cannot update sort key fields.".to_owned(),
+                "cannot update primary key fields.".to_owned(),
             ));
         }
 
@@ -64,13 +54,8 @@ impl SchemaHelper {
     pub fn build_pk_from_json(&self, data: &Bytes) -> Result<PrimaryKey, ConstDBError> {
         let json_object = Self::get_json_object(data)?;
         let mut pk = Vec::new();
-        for k in &self.table_settings.partition_keys {
+        for k in &self.table_settings.primary_keys {
             let bytes = SchemaHelper::read_pk_field_from_json(&json_object, k.as_str())?;
-            pk.push(bytes);
-        }
-
-        for k in &self.table_settings.sort_keys {
-            let bytes = SchemaHelper::read_pk_field_from_json(&json_object, k.name.as_str())?;
             pk.push(bytes);
         }
 
@@ -87,13 +72,8 @@ impl SchemaHelper {
         params: &HashMap<String, String>,
     ) -> Result<PrimaryKey, ConstDBError> {
         let mut pk = Vec::new();
-        for k in &self.table_settings.partition_keys {
-            let bytes = SchemaHelper::read_pk_field_from_params(&params, k.as_str())?;
-            pk.push(bytes);
-        }
-
-        for k in &self.table_settings.sort_keys {
-            let bytes = SchemaHelper::read_pk_field_from_params(&params, k.name.as_str()).ok();
+        for k in &self.table_settings.primary_keys {
+            let bytes = SchemaHelper::read_pk_field_from_params(&params, k.as_str()).ok();
             if bytes.is_none() {
                 break;
             }
@@ -105,9 +85,7 @@ impl SchemaHelper {
             r.push(0);
             r
         });
-        match pk.len()
-            < self.table_settings.partition_keys.len() + self.table_settings.sort_keys.len()
-        {
+        match pk.len() < self.table_settings.primary_keys.len() {
             true => Ok(PrimaryKey::Prefix(bytes)),
             false => Ok(PrimaryKey::Complete(bytes)),
         }

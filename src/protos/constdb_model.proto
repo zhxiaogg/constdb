@@ -3,29 +3,8 @@ syntax = "proto3";
 message DBSettings {
   string name = 1;
 }
+
 message TableSettings {
   string name = 1;
-  repeated string partition_keys = 2;
-  repeated SortKey sort_keys = 3;
-  TableSchema schema = 4;
-}
-
-message SortKey {
-  string name =1;
-  bool reverse = 2;
-}
-
-enum FieldType {
-  UNKNOWN = 0;
-  STRING = 1;
-  INT32 = 2;
-}
-
-message Field {
-  string name = 1;
-  FieldType field_type = 2;
-}
-
-message TableSchema {
-  repeated Field fields = 1; 
+  repeated string primary_keys = 2;
 }
