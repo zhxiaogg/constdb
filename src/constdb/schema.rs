@@ -76,6 +76,7 @@ impl SchemaHelper {
 
         let bytes = pk.into_iter().fold(Vec::new(), |mut r, bytes| {
             r.extend(bytes);
+            r.push(0);
             r
         });
         Ok(PrimaryKey::Complete(bytes))
@@ -101,6 +102,7 @@ impl SchemaHelper {
 
         let bytes = pk.iter().fold(Vec::new(), |mut r, bytes| {
             r.extend(*bytes);
+            r.push(0);
             r
         });
         match pk.len()
