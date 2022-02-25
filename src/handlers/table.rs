@@ -58,3 +58,23 @@ pub fn create_table_route(
             }
         })
 }
+
+pub fn drop_table_route(
+    db: &Arc<RwLock<ConstDB>>,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    let const_db = Arc::clone(db);
+    warp::path!(String / "tables" / String)
+        .and(warp::path::end())
+        .and(warp::delete())
+        .then(move |db_name: String, table_name: String| {
+            let const_db = Arc::clone(&const_db);
+            async move {
+                let mut cdb = const_db.write().await;
+                let result = cdb.delete_table(db_name.as_str(), table_name.as_str());
+                match result {
+                    Ok(_) => StatusCode::OK.into_response(),
+                    Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
+                }
+            }
+        })
+}

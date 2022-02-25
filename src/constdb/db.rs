@@ -48,6 +48,15 @@ impl DBInstance {
         Ok(())
     }
 
+    pub fn delete_table(&mut self, table_name: &str) -> Result<(), ConstDBError> {
+        if self.rocks_db.is_none() {
+            return Ok(());
+        }
+        let rocks_db = self.rocks_db.as_mut().unwrap();
+        rocks_db.drop_cf(table_name)?;
+        Ok(())
+    }
+
     pub fn open_rocks_db(&mut self) -> Result<(), ConstDBError> {
         let rocks_db_path = Path::new(self.root.as_str()).join("bin.db");
         let opts = Options::default();

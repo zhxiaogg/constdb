@@ -174,6 +174,30 @@ impl ConstDB {
         Ok(())
     }
 
+    pub fn delete_table(&mut self, db_name: &str, table_name: &str) -> Result<(), ConstDBError> {
+        if !self.db_exists(db_name) {
+            return Err(ConstDBError::NotFound(format!(
+                "db [{}] not found!",
+                db_name
+            )));
+        }
+
+        if !self.table_exists(db_name, table_name)? {
+            return Err(ConstDBError::NotFound(format!(
+                "table [{}.{}] does not exist.",
+                db_name, table_name
+            )));
+        }
+
+        let db = self.dbs.get_mut(db_name).unwrap();
+        db.delete_table(table_name)?;
+        let system_db = self.system_db()?;
+        system_db
+            .rocks_db()?
+            .delete(SystemKeys::table_meta_key(db_name, table_name).as_key())?;
+        Ok(())
+    }
+
     pub fn query_by_key(
         &self,
         db_name: &str,
