@@ -1,10 +1,11 @@
-use std::{fs, path::Path};
+use std::{fs, io::ErrorKind, path::Path};
 
 use rocksdb::{ColumnFamily, ColumnFamilyDescriptor, Options, DB};
 
 use crate::protos::constdb_model::TableSettings;
 
 use super::errors::ConstDBError;
+use crate::utils;
 
 pub struct DBInstance {
     pub name: String,
@@ -50,14 +51,14 @@ impl DBInstance {
     pub fn open_rocks_db(&mut self) -> Result<(), ConstDBError> {
         let rocks_db_path = Path::new(self.root.as_str()).join("bin.db");
         let opts = Options::default();
-        match fs::try_exists(rocks_db_path.clone()) {
-            Ok(true) => {
+        match utils::fs::exists(&rocks_db_path)? {
+            true => {
                 let cfs = DB::list_cf(&opts, rocks_db_path.clone())?
                     .into_iter()
                     .map(|cf_name| ColumnFamilyDescriptor::new(cf_name, Options::default()));
                 self.rocks_db = Some(DB::open_cf_descriptors(&opts, rocks_db_path, cfs)?);
             }
-            _ => {
+            false => {
                 self.rocks_db = Some(DB::open_default(rocks_db_path)?);
             }
         }
@@ -66,7 +67,7 @@ impl DBInstance {
 
     pub fn try_open_rocks_db(&mut self) -> Result<(), ConstDBError> {
         let rocks_db_path = Path::new(self.root.as_str()).join("bin.db");
-        if fs::try_exists(rocks_db_path)? {
+        if utils::fs::exists(rocks_db_path)? {
             self.open_rocks_db()?;
         }
         Ok(())

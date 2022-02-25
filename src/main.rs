@@ -1,4 +1,3 @@
-#![feature(path_try_exists)]
 pub mod constdb;
 use std::sync::Arc;
 
