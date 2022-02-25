@@ -5,7 +5,7 @@ mod handlers;
 mod protos;
 mod utils;
 use constdb::{ConstDB, Settings};
-use handlers::database::{create_db_route, list_db_route};
+use handlers::database::{create_db_route, drop_db_route, list_db_route};
 use handlers::dml::{table_delete, table_get_by_key, table_insert, table_update};
 use handlers::table::{create_table_route, drop_table_route, list_table_route};
 use tokio::sync::RwLock;
@@ -43,10 +43,12 @@ async fn main() {
     let drop_table = drop_table_route(&const_db);
     let list_db = list_db_route(&const_db);
     let create_db = create_db_route(&const_db);
+    let drop_db = drop_db_route(&const_db);
     let ddl_dml_routes = warp::path!("dbs" / ..).and(
         create_db
             .or(list_db)
             .or(create_table)
+            .or(drop_db)
             .or(drop_table)
             .or(list_table)
             .or(table_insert)

@@ -2,7 +2,7 @@ use crate::constdb::system_db::*;
 use std::{collections::HashMap, path::Path};
 
 use protobuf::Message;
-use rocksdb::{Direction, ReadOptions};
+use rocksdb::{Direction, Options, ReadOptions, DB};
 use warp::hyper::body::Bytes;
 
 use crate::protos::constdb_model::{DBSettings, TableSettings};
@@ -87,6 +87,16 @@ impl ConstDB {
             db_settings.write_to_bytes()?,
         )?;
         Ok(())
+    }
+
+    pub fn drop_db(&mut self, name: &str) -> Result<(), ConstDBError> {
+        match self.dbs.remove(name) {
+            Some(db) => {
+                DB::destroy(&Options::default(), db.root.as_str())?;
+                Ok(())
+            }
+            None => Err(ConstDBError::NotFound(format!("db [{}] not exists", name))),
+        }
     }
 
     pub fn get_table(
