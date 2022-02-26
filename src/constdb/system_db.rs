@@ -25,8 +25,8 @@ impl SystemKeys {
 
     pub fn parse_table_meta_key(bytes: &[u8]) -> Result<(String, String), ConstDBError> {
         match String::from_utf8(bytes.to_vec()) {
-            Ok(s) if s.starts_with("t") && s.contains(".") => {
-                let parts: Vec<&str> = s.trim_start_matches("t").splitn(2, ".").collect();
+            Ok(s) if s.starts_with('t') && s.contains('.') => {
+                let parts: Vec<&str> = s.trim_start_matches('t').splitn(2, '.').collect();
                 Ok((parts[0].to_owned(), parts[1].to_owned()))
             }
             Ok(s) => Err(ConstDBError::InvalidStates(format!(
@@ -42,7 +42,7 @@ impl SystemKeys {
 
     pub fn parse_db_meta_key(bytes: &[u8]) -> Result<String, ConstDBError> {
         match String::from_utf8(bytes.to_vec()) {
-            Ok(s) if s.starts_with("d") => Ok(s.trim_start_matches("d").to_owned()),
+            Ok(s) if s.starts_with('d') => Ok(s.trim_start_matches('d').to_owned()),
             Ok(s) => Err(ConstDBError::InvalidStates(format!(
                 "invalid db meta key: {}",
                 s

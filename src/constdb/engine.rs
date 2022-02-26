@@ -16,14 +16,14 @@ pub struct Settings {
     pub root: String,
 }
 
-pub struct ConstDB {
+pub struct Engine {
     dbs: HashMap<String, DBInstance>,
     settings: Settings,
 }
 
-impl ConstDB {
+impl Engine {
     pub fn new(settings: Settings) -> Result<Self, ConstDBError> {
-        let mut db = ConstDB {
+        let mut db = Engine {
             dbs: HashMap::new(),
             settings,
         };
@@ -39,7 +39,7 @@ impl ConstDB {
             .into_iter()
             .map(|(k, _v)| SystemKeys::parse_db_meta_key(k.as_ref()))
         {
-            if !try_db_name.is_ok() {
+            if try_db_name.is_err() {
                 break;
             }
             let db_name = try_db_name?;
@@ -54,9 +54,9 @@ impl ConstDB {
 
     /// get the system db
     fn system_db(&self) -> Result<&DBInstance, ConstDBError> {
-        self.dbs.get("system").ok_or(ConstDBError::InvalidStates(
-            "cannot find [system] db".to_owned(),
-        ))
+        self.dbs
+            .get("system")
+            .ok_or_else(|| ConstDBError::InvalidStates("cannot find [system] db".to_owned()))
     }
 
     pub fn db_exists(&self, name: &str) -> bool {
@@ -140,7 +140,7 @@ impl ConstDB {
         let mut table_items = Vec::new();
         for (k, v) in table_meta_iter {
             let try_table_meta_key = SystemKeys::parse_table_meta_key(k.as_ref());
-            if !try_table_meta_key.is_ok() {
+            if try_table_meta_key.is_err() {
                 break;
             }
             let settings = TableSettings::parse_from_bytes(v.as_ref())?;
@@ -217,10 +217,10 @@ impl ConstDB {
         let table = self.get_table(db_name, table_name)?;
         let schema = SchemaHelper::new(table);
         let pk = schema.build_pk_from_params(&params)?;
-        let db = self.dbs.get(db_name).ok_or(ConstDBError::NotFound(format!(
-            "database [{}] not found.",
-            db_name
-        )))?;
+        let db = self
+            .dbs
+            .get(db_name)
+            .ok_or_else(|| ConstDBError::NotFound(format!("database [{}] not found.", db_name)))?;
 
         match pk {
             PrimaryKey::Prefix(prefix) => {
@@ -248,11 +248,11 @@ impl ConstDB {
         }
     }
 
-    fn build_upper_bound(prefix: &Vec<u8>) -> Option<Vec<u8>> {
+    fn build_upper_bound(prefix: &[u8]) -> Option<Vec<u8>> {
         for pos in (0..prefix.len()).rev() {
             let v = &prefix[pos];
             if *v != 0xFF {
-                let mut stop_key = prefix.clone();
+                let mut stop_key = prefix.to_owned();
                 stop_key[pos] = v + 1;
                 return Some(stop_key);
             }
@@ -264,10 +264,10 @@ impl ConstDB {
         let table = self.get_table(db_name, table_name)?;
         let schema = SchemaHelper::new(table);
         let primary_key = schema.build_pk_from_json(&data)?;
-        let db = self.dbs.get(db_name).ok_or(ConstDBError::NotFound(format!(
-            "database [{}] not found.",
-            db_name
-        )))?;
+        let db = self
+            .dbs
+            .get(db_name)
+            .ok_or_else(|| ConstDBError::NotFound(format!("database [{}] not found.", db_name)))?;
 
         let table = db.rocks_db_for_table(table_name)?;
         db.rocks_db()?
@@ -285,17 +285,17 @@ impl ConstDB {
         let table = self.get_table(db_name, table_name)?;
         let schema = SchemaHelper::new(table);
         let primary_key = schema.build_pk_from_params(&params)?;
-        let db = self.dbs.get(db_name).ok_or(ConstDBError::NotFound(format!(
-            "database [{}] not found.",
-            db_name
-        )))?;
+        let db = self
+            .dbs
+            .get(db_name)
+            .ok_or_else(|| ConstDBError::NotFound(format!("database [{}] not found.", db_name)))?;
 
         let pk = primary_key.complete()?;
         let table = db.rocks_db_for_table(table_name)?;
         let rocks_db = db.rocks_db()?;
         let existing = rocks_db
             .get_cf(table, pk)?
-            .ok_or(ConstDBError::NotFound(format!("data not found!")))?;
+            .ok_or_else(|| ConstDBError::NotFound("data not found!".to_string()))?;
         let updated = schema.update(&existing, &data)?;
         rocks_db.put_cf(table, pk, updated)?;
         Ok(())
@@ -310,10 +310,10 @@ impl ConstDB {
         let table = self.get_table(db_name, table_name)?;
         let schema = SchemaHelper::new(table);
         let primary_key = schema.build_pk_from_params(&params)?;
-        let db = self.dbs.get(db_name).ok_or(ConstDBError::NotFound(format!(
-            "database [{}] not found.",
-            db_name
-        )))?;
+        let db = self
+            .dbs
+            .get(db_name)
+            .ok_or_else(|| ConstDBError::NotFound(format!("database [{}] not found.", db_name)))?;
 
         let table = db.rocks_db_for_table(table_name)?;
         db.rocks_db()?.delete_cf(table, primary_key.complete()?)?;

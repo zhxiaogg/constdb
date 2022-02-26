@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::constdb::{api::*, ConstDB};
+use crate::constdb::{api::*, Engine};
 use crate::protos::constdb_model::TableSettings;
 
 use tokio::sync::RwLock;
@@ -10,7 +10,7 @@ use warp::Filter;
 use warp::{self, Reply};
 
 pub fn list_table_route(
-    db: &Arc<RwLock<ConstDB>>,
+    db: &Arc<RwLock<Engine>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables")
@@ -30,7 +30,7 @@ pub fn list_table_route(
 }
 
 pub fn create_table_route(
-    db: &Arc<RwLock<ConstDB>>,
+    db: &Arc<RwLock<Engine>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables")
@@ -60,7 +60,7 @@ pub fn create_table_route(
 }
 
 pub fn drop_table_route(
-    db: &Arc<RwLock<ConstDB>>,
+    db: &Arc<RwLock<Engine>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables" / String)

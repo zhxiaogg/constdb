@@ -1,10 +1,11 @@
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
 
 use protobuf::EnumOrUnknown;
 use protobuf::{Enum, MessageField};
 
+#[allow(dead_code)]
 pub fn serialize_message_field<M: serde::Serialize, S: serde::Serializer>(
     e: &MessageField<M>,
     s: S,
@@ -15,6 +16,7 @@ pub fn serialize_message_field<M: serde::Serialize, S: serde::Serializer>(
     }
 }
 
+#[allow(dead_code)]
 pub fn deserialize_message_field<
     'de,
     M: 'de + serde::Deserialize<'de>,
@@ -51,6 +53,7 @@ pub fn deserialize_message_field<
     d.deserialize_newtype_struct("", DeserializeMessageFieldVisitor::<'de, M>(PhantomData))
 }
 
+#[allow(dead_code)]
 pub fn serialize_enum_or_unknown<E: Enum, S: serde::Serializer>(
     e: &EnumOrUnknown<E>,
     s: S,
@@ -61,6 +64,7 @@ pub fn serialize_enum_or_unknown<E: Enum, S: serde::Serializer>(
     }
 }
 
+#[allow(dead_code)]
 pub fn deserialize_enum_or_unknown<'de, E: Enum, D: serde::Deserializer<'de>>(
     d: D,
 ) -> Result<EnumOrUnknown<E>, D::Error> {

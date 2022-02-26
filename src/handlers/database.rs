@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::constdb::{api::*, ConstDB};
+use crate::constdb::{api::*, Engine};
 
 use tokio::sync::RwLock;
 use warp::hyper::StatusCode;
@@ -9,7 +9,7 @@ use warp::Filter;
 use warp::{self, Reply};
 
 pub fn list_db_route(
-    db: &Arc<RwLock<ConstDB>>,
+    db: &Arc<RwLock<Engine>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path::end().and(warp::get()).then(move || {
@@ -26,7 +26,7 @@ pub fn list_db_route(
 }
 
 pub fn create_db_route(
-    db: &Arc<RwLock<ConstDB>>,
+    db: &Arc<RwLock<Engine>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path::end()
@@ -52,7 +52,7 @@ pub fn create_db_route(
 }
 
 pub fn drop_db_route(
-    db: &Arc<RwLock<ConstDB>>,
+    db: &Arc<RwLock<Engine>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String)

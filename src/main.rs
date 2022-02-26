@@ -4,13 +4,12 @@ use std::sync::Arc;
 mod handlers;
 mod protos;
 mod utils;
-use constdb::{ConstDB, Settings};
+use constdb::{Engine, Settings};
 use handlers::database::{create_db_route, drop_db_route, list_db_route};
 use handlers::dml::{table_delete, table_get_by_key, table_insert, table_update};
 use handlers::table::{create_table_route, drop_table_route, list_table_route};
 use tokio::sync::RwLock;
 
-use warp;
 use warp::Filter;
 
 use clap::Parser;
@@ -30,7 +29,7 @@ async fn main() {
     let settings = Settings {
         root: args.root.to_string(),
     };
-    let const_db = Arc::new(RwLock::new(ConstDB::new(settings).unwrap()));
+    let const_db = Arc::new(RwLock::new(Engine::new(settings).unwrap()));
 
     let index_route = warp::path::end().map(|| "Hello, ConstDB!");
 

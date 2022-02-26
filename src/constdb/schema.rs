@@ -42,7 +42,7 @@ impl SchemaHelper {
 
     fn get_json_object(data: &[u8]) -> Result<Map<String, Value>, ConstDBError> {
         serde_json::from_slice(data)
-            .map_err(|e| ConstDBError::from(e))
+            .map_err(ConstDBError::from)
             .and_then(|json| match json {
                 Value::Object(object) => Ok(object),
                 _ => Err(ConstDBError::InvalidArguments(
@@ -73,7 +73,7 @@ impl SchemaHelper {
     ) -> Result<PrimaryKey, ConstDBError> {
         let mut pk = Vec::new();
         for k in &self.table_settings.primary_keys {
-            let bytes = SchemaHelper::read_pk_field_from_params(&params, k.as_str()).ok();
+            let bytes = SchemaHelper::read_pk_field_from_params(params, k.as_str()).ok();
             if bytes.is_none() {
                 break;
             }

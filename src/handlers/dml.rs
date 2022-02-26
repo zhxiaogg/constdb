@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::constdb::ConstDB;
+use crate::constdb::Engine;
 
 use tokio::sync::RwLock;
 use warp::hyper::body::Bytes;
@@ -11,7 +11,7 @@ use warp::Filter;
 use warp::{self, Reply};
 
 pub fn table_insert(
-    db: &Arc<RwLock<ConstDB>>,
+    db: &Arc<RwLock<Engine>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables" / String)
@@ -32,7 +32,7 @@ pub fn table_insert(
 }
 
 pub fn table_get_by_key(
-    db: &Arc<RwLock<ConstDB>>,
+    db: &Arc<RwLock<Engine>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables" / String)
@@ -60,7 +60,7 @@ pub fn table_get_by_key(
 }
 
 pub fn table_delete(
-    db: &Arc<RwLock<ConstDB>>,
+    db: &Arc<RwLock<Engine>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables" / String)
@@ -83,7 +83,7 @@ pub fn table_delete(
 }
 
 pub fn table_update(
-    db: &Arc<RwLock<ConstDB>>,
+    db: &Arc<RwLock<Engine>>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables" / String)
