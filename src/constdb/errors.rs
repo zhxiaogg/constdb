@@ -4,7 +4,7 @@ use super::Id;
 
 #[derive(Debug)]
 pub enum ConstDBError {
-    AlreadyExists(String),
+    AlreadyExists(Id),
     NotFound(Id),
     InvalidStates(String),
     InvalidArguments(String),
@@ -13,7 +13,7 @@ pub enum ConstDBError {
 impl ToString for ConstDBError {
     fn to_string(&self) -> String {
         match self {
-            ConstDBError::AlreadyExists(msg) => msg.to_owned(),
+            ConstDBError::AlreadyExists(id) => format!("{} already exists!", id.to_string()),
             ConstDBError::NotFound(id) => format!("{} not found!", id.to_string()),
             ConstDBError::InvalidStates(msg) => msg.to_owned(),
             ConstDBError::InvalidArguments(msg) => msg.to_owned(),

@@ -73,10 +73,7 @@ impl Engine {
 
     pub fn create_db(&mut self, name: &str) -> Result<(), ConstDBError> {
         if self.db_exists(name) {
-            return Err(ConstDBError::AlreadyExists(format!(
-                "db [{}] already exists!",
-                name
-            )));
+            return Err(ConstDBError::AlreadyExists(Id::Database(name.to_owned())));
         }
         let db = self.open(name)?;
         self.dbs.insert(name.to_owned(), db);
@@ -157,9 +154,9 @@ impl Engine {
             return Err(ConstDBError::NotFound(Id::Database(db_name.to_owned())));
         }
         if self.table_exists(db_name, input.name.as_str())? {
-            return Err(ConstDBError::AlreadyExists(format!(
-                "table [{}.{}] already exists.",
-                db_name, input.name
+            return Err(ConstDBError::AlreadyExists(Id::table(
+                db_name,
+                input.name.as_str(),
             )));
         }
         let db = self.dbs.get_mut(db_name).unwrap();
