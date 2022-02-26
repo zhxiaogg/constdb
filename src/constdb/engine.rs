@@ -9,7 +9,7 @@ use crate::protos::constdb_model::{DBSettings, TableSettings};
 
 use crate::constdb::{api::DBItem, db::DBInstance, errors::ConstDBError, schema::SchemaHelper};
 
-use super::PrimaryKey;
+use super::{Id, PrimaryKey};
 
 /// ConstDB settings
 pub struct Settings {
@@ -95,7 +95,7 @@ impl Engine {
                 DB::destroy(&Options::default(), db.root.as_str())?;
                 Ok(())
             }
-            None => Err(ConstDBError::NotFound(format!("db [{}] not exists", name))),
+            None => Err(ConstDBError::NotFound(Id::Database(name.to_owned()))),
         }
     }
 
@@ -105,29 +105,20 @@ impl Engine {
         table_name: &str,
     ) -> Result<TableSettings, ConstDBError> {
         if !self.db_exists(db_name) {
-            return Err(ConstDBError::NotFound(format!(
-                "db [{}] not found!",
-                db_name
-            )));
+            return Err(ConstDBError::NotFound(Id::Database(db_name.to_owned())));
         }
         let system_db = self.system_db()?;
         let table_meta_key = SystemKeys::table_meta_key(db_name, table_name);
         let result = system_db.rocks_db()?.get(table_meta_key.as_key())?;
         match result {
-            None => Err(ConstDBError::NotFound(format!(
-                "table not exists [{}.{}]!",
-                db_name, table_name
-            ))),
+            None => Err(ConstDBError::NotFound(Id::table(db_name, table_name))),
             Some(value) => Ok(TableSettings::parse_from_bytes(&value)?),
         }
     }
 
     pub fn list_table(&self, db_name: &str) -> Result<Vec<TableSettings>, ConstDBError> {
         if !self.db_exists(db_name) {
-            return Err(ConstDBError::NotFound(format!(
-                "db [{}] not found!",
-                db_name
-            )));
+            return Err(ConstDBError::NotFound(Id::Database(db_name.to_owned())));
         }
 
         let system_db = self.system_db()?;
@@ -163,10 +154,7 @@ impl Engine {
         input: &TableSettings,
     ) -> Result<(), ConstDBError> {
         if !self.db_exists(db_name) {
-            return Err(ConstDBError::NotFound(format!(
-                "db [{}] not found!",
-                db_name
-            )));
+            return Err(ConstDBError::NotFound(Id::Database(db_name.to_owned())));
         }
         if self.table_exists(db_name, input.name.as_str())? {
             return Err(ConstDBError::AlreadyExists(format!(
@@ -186,17 +174,11 @@ impl Engine {
 
     pub fn delete_table(&mut self, db_name: &str, table_name: &str) -> Result<(), ConstDBError> {
         if !self.db_exists(db_name) {
-            return Err(ConstDBError::NotFound(format!(
-                "db [{}] not found!",
-                db_name
-            )));
+            return Err(ConstDBError::NotFound(Id::Database(db_name.to_owned())));
         }
 
         if !self.table_exists(db_name, table_name)? {
-            return Err(ConstDBError::NotFound(format!(
-                "table [{}.{}] does not exist.",
-                db_name, table_name
-            )));
+            return Err(ConstDBError::NotFound(Id::table(db_name, table_name)));
         }
 
         let db = self.dbs.get_mut(db_name).unwrap();
@@ -220,7 +202,7 @@ impl Engine {
         let db = self
             .dbs
             .get(db_name)
-            .ok_or_else(|| ConstDBError::NotFound(format!("database [{}] not found.", db_name)))?;
+            .ok_or_else(|| ConstDBError::NotFound(Id::Database(db_name.to_owned())))?;
 
         match pk {
             PrimaryKey::Prefix(prefix) => {
@@ -242,7 +224,7 @@ impl Engine {
                 let opt_value = db.rocks_db()?.get_cf(table, key)?;
                 match opt_value {
                     Some(v) => Ok(String::from_utf8(v).unwrap()),
-                    None => Err(ConstDBError::NotFound("key not found!".to_owned())),
+                    None => Err(ConstDBError::NotFound(Id::Data)),
                 }
             }
         }
@@ -267,7 +249,7 @@ impl Engine {
         let db = self
             .dbs
             .get(db_name)
-            .ok_or_else(|| ConstDBError::NotFound(format!("database [{}] not found.", db_name)))?;
+            .ok_or_else(|| ConstDBError::NotFound(Id::Database(db_name.to_owned())))?;
 
         let table = db.rocks_db_for_table(table_name)?;
         db.rocks_db()?
@@ -288,14 +270,14 @@ impl Engine {
         let db = self
             .dbs
             .get(db_name)
-            .ok_or_else(|| ConstDBError::NotFound(format!("database [{}] not found.", db_name)))?;
+            .ok_or_else(|| ConstDBError::NotFound(Id::Database(db_name.to_owned())))?;
 
         let pk = primary_key.complete()?;
         let table = db.rocks_db_for_table(table_name)?;
         let rocks_db = db.rocks_db()?;
         let existing = rocks_db
             .get_cf(table, pk)?
-            .ok_or_else(|| ConstDBError::NotFound("data not found!".to_string()))?;
+            .ok_or(ConstDBError::NotFound(Id::Data))?;
         let updated = schema.update(&existing, &data)?;
         rocks_db.put_cf(table, pk, updated)?;
         Ok(())
@@ -313,7 +295,7 @@ impl Engine {
         let db = self
             .dbs
             .get(db_name)
-            .ok_or_else(|| ConstDBError::NotFound(format!("database [{}] not found.", db_name)))?;
+            .ok_or_else(|| ConstDBError::NotFound(Id::Database(db_name.to_owned())))?;
 
         let table = db.rocks_db_for_table(table_name)?;
         db.rocks_db()?.delete_cf(table, primary_key.complete()?)?;
