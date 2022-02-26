@@ -16,6 +16,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+        components: rustfmt, clippy
+    - uses: Swatinem/rust-cache@v1
+
+    - name: Cargo clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
     - name: Build
       run: cargo build --verbose
     - name: Run tests
