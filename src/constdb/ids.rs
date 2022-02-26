@@ -1,10 +1,7 @@
-use super::PrimaryKey;
-
 #[derive(Debug)]
 pub enum Id {
     Database(String),
     Table { db: String, name: String },
-    Key(PrimaryKey),
     Data,
 }
 

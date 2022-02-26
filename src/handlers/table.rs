@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use crate::constdb::{api::*, Engine};
+use crate::constdb::Engine;
+use crate::handlers::models::*;
 use crate::protos::constdb_model::TableSettings;
 
 use tokio::sync::RwLock;

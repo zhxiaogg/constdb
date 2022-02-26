@@ -7,7 +7,7 @@ use warp::hyper::body::Bytes;
 
 use crate::protos::constdb_model::{DBSettings, TableSettings};
 
-use crate::constdb::{api::DBItem, db::DBInstance, errors::ConstDBError, schema::SchemaHelper};
+use crate::constdb::{db::DBInstance, errors::ConstDBError, schema::SchemaHelper};
 
 use super::{Id, PrimaryKey};
 
@@ -71,7 +71,7 @@ impl Engine {
             .map(|r| r.is_some())?)
     }
 
-    pub fn create_db(&mut self, name: &str) -> Result<(), ConstDBError> {
+    pub fn create_db(&mut self, name: &str) -> Result<DBSettings, ConstDBError> {
         if self.db_exists(name) {
             return Err(ConstDBError::AlreadyExists(Id::Database(name.to_owned())));
         }
@@ -83,7 +83,9 @@ impl Engine {
             SystemKeys::db_meta_key(name).as_key(),
             db_settings.write_to_bytes()?,
         )?;
-        Ok(())
+        let mut db = DBSettings::new();
+        db.name = name.to_owned();
+        Ok(db)
     }
 
     pub fn drop_db(&mut self, name: &str) -> Result<(), ConstDBError> {
@@ -137,11 +139,15 @@ impl Engine {
         Ok(table_items)
     }
 
-    pub fn list_db(&self) -> Result<Vec<DBItem>, ConstDBError> {
+    pub fn list_db(&self) -> Result<Vec<DBSettings>, ConstDBError> {
         Ok(self
             .dbs
             .iter()
-            .map(|(k, _)| DBItem::new(k.as_str()))
+            .map(|(k, _)| {
+                let mut db = DBSettings::new();
+                db.name = k.to_string();
+                db
+            })
             .collect())
     }
 

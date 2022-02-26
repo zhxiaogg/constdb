@@ -1,4 +1,3 @@
-pub mod api;
 mod db;
 mod engine;
 pub mod errors;

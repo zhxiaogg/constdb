@@ -99,7 +99,7 @@ impl SchemaHelper {
             Some(s) => Ok(s.as_bytes()),
             _ => {
                 return Err(ConstDBError::InvalidArguments(format!(
-                    "cannot find partition key: {}",
+                    "cannot find primary key: {}",
                     k
                 )));
             }
@@ -117,7 +117,7 @@ impl SchemaHelper {
                 k
             ))),
             _ => Err(ConstDBError::InvalidArguments(format!(
-                "unsupported type for partition key {}",
+                "unsupported type for primary key {}",
                 k
             ))),
         }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use crate::constdb::{api::*, Engine};
-
+use crate::constdb::Engine;
+use crate::handlers::models::*;
 use tokio::sync::RwLock;
 use warp::hyper::StatusCode;
 use warp::reply::{json, with_status};
@@ -39,12 +39,7 @@ pub fn create_db_route(
                 let mut cdb = const_db.write().await;
                 let result = cdb.create_db(create_db_input.name.as_str());
                 match result {
-                    Ok(_) => {
-                        let output = CreateDBOutput {
-                            name: create_db_input.name.to_string(),
-                        };
-                        with_status(json(&output), StatusCode::CREATED).into_response()
-                    }
+                    Ok(db) => with_status(json(&db), StatusCode::CREATED).into_response(),
                     Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
                 }
             }
