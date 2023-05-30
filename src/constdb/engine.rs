@@ -35,10 +35,12 @@ impl Engine {
             rocksdb::IteratorMode::From(prefix.as_ref(), Direction::Forward),
             read_opts,
         );
-        for try_db_name in tables
-            .into_iter()
-            .map(|(k, _v)| SystemKeys::parse_db_meta_key(k.as_ref()))
-        {
+        for try_db_name in tables.into_iter().map(|result_kv| match result_kv {
+            Ok((k, _v)) => SystemKeys::parse_db_meta_key(k.as_ref()),
+            Err(_) => Err(ConstDBError::InvalidStates(
+                "error when scan db names.".to_string(),
+            )),
+        }) {
             if try_db_name.is_err() {
                 break;
             }
@@ -128,11 +130,9 @@ impl Engine {
             Direction::Forward,
         ));
         let mut table_items = Vec::new();
-        for (k, v) in table_meta_iter {
-            let try_table_meta_key = SystemKeys::parse_table_meta_key(k.as_ref());
-            if try_table_meta_key.is_err() {
-                break;
-            }
+        for result_kv in table_meta_iter {
+            let (k, v) = result_kv?;
+            SystemKeys::parse_table_meta_key(k.as_ref())?;
             let settings = TableSettings::parse_from_bytes(v.as_ref())?;
             table_items.push(settings);
         }
@@ -217,7 +217,8 @@ impl Engine {
                 let table = db.rocks_db_for_table(table_name)?;
                 let rows_iter = db.rocks_db()?.iterator_cf_opt(table, read_opts, iter_mode);
                 let mut rows = Vec::new();
-                for (_k, v) in rows_iter {
+                for result_kv in rows_iter {
+                    let (_k, v) = result_kv?;
                     rows.push(String::from_utf8(v.into()).unwrap());
                 }
                 Ok(format!("[{}]", rows.join(",")))
