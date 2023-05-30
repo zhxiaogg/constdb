@@ -37,7 +37,7 @@ fn main() {
     // Use this in build.rs
     Codegen::new()
         .pure()
-        .includes(&["src/protos"])
+        .includes(["src/protos"])
         // Inputs must reside in some of include paths.
         .input("src/protos/constdb_model.proto")
         .out_dir("src/protos")

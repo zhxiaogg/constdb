@@ -97,12 +97,10 @@ impl SchemaHelper {
     ) -> Result<&'a [u8], ConstDBError> {
         match params.get(k) {
             Some(s) => Ok(s.as_bytes()),
-            _ => {
-                return Err(ConstDBError::InvalidArguments(format!(
-                    "cannot find primary key: {}",
-                    k
-                )));
-            }
+            _ => Err(ConstDBError::InvalidArguments(format!(
+                "cannot find primary key: {}",
+                k
+            ))),
         }
     }
 

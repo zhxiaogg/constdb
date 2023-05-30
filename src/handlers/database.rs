@@ -10,7 +10,7 @@ use warp::{self, Reply};
 
 pub fn list_db_route(
     db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path::end().and(warp::get()).then(move || {
         let const_db = Arc::clone(&const_db);
@@ -27,7 +27,7 @@ pub fn list_db_route(
 
 pub fn create_db_route(
     db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path::end()
         .and(warp::post())
@@ -48,7 +48,7 @@ pub fn create_db_route(
 
 pub fn drop_db_route(
     db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String)
         .and(warp::path::end())

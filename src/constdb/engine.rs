@@ -142,8 +142,8 @@ impl Engine {
     pub fn list_db(&self) -> Result<Vec<DBSettings>, ConstDBError> {
         Ok(self
             .dbs
-            .iter()
-            .map(|(k, _)| {
+            .keys()
+            .map(|k| {
                 let mut db = DBSettings::new();
                 db.name = k.to_string();
                 db

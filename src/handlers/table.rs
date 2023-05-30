@@ -12,7 +12,7 @@ use warp::{self, Reply};
 
 pub fn list_table_route(
     db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables")
         .and(warp::path::end())
@@ -32,7 +32,7 @@ pub fn list_table_route(
 
 pub fn create_table_route(
     db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables")
         .and(warp::path::end())
@@ -62,7 +62,7 @@ pub fn create_table_route(
 
 pub fn drop_table_route(
     db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables" / String)
         .and(warp::path::end())

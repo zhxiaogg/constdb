@@ -12,7 +12,7 @@ use warp::{self, Reply};
 
 pub fn table_insert(
     db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables" / String)
         .and(warp::path::end())
@@ -33,7 +33,7 @@ pub fn table_insert(
 
 pub fn table_get_by_key(
     db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables" / String)
         .and(warp::path::end())
@@ -61,7 +61,7 @@ pub fn table_get_by_key(
 
 pub fn table_delete(
     db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables" / String)
         .and(warp::path::end())
@@ -84,7 +84,7 @@ pub fn table_delete(
 
 pub fn table_update(
     db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let const_db = Arc::clone(db);
     warp::path!(String / "tables" / String)
         .and(warp::path::end())
