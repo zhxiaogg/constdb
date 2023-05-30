@@ -19,7 +19,7 @@ use clap::Parser;
 #[clap(author, version, about, long_about=None)]
 struct ConstDBArgs {
     /// Path to the root folder of constdb
-    #[clap(short, long)]
+    #[clap(short, long, action)]
     root: String,
 }
 
