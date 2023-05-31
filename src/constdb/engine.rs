@@ -127,7 +127,7 @@ impl Engine {
         let prefix_key = SystemKeys::table_meta_prefix(db_name);
         let prefix = prefix_key.as_key();
         let mut read_opts = ReadOptions::default();
-        Self::build_upper_bound(&prefix.as_bytes())
+        Self::build_upper_bound(prefix.as_bytes())
             .into_iter()
             .for_each(|upper_key| read_opts.set_iterate_upper_bound(upper_key));
         let iter_mode = rocksdb::IteratorMode::From(prefix.as_ref(), Direction::Forward);
