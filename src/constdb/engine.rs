@@ -126,10 +126,13 @@ impl Engine {
         let system_db = self.system_db()?;
         let prefix_key = SystemKeys::table_meta_prefix(db_name);
         let prefix = prefix_key.as_key();
-        let table_meta_iter = system_db.rocks_db()?.iterator(rocksdb::IteratorMode::From(
-            prefix.as_ref(),
-            Direction::Forward,
-        ));
+        let mut read_opts = ReadOptions::default();
+        Self::build_upper_bound(&prefix.as_bytes())
+            .into_iter()
+            .for_each(|upper_key| read_opts.set_iterate_upper_bound(upper_key));
+        let iter_mode = rocksdb::IteratorMode::From(prefix.as_ref(), Direction::Forward);
+        let table_meta_iter = system_db.rocks_db()?.iterator_opt(iter_mode, read_opts);
+
         let mut table_items = Vec::new();
         for result_kv in table_meta_iter {
             let (k, v) = result_kv?;
