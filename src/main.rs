@@ -1,16 +1,19 @@
 pub mod constdb;
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 mod handlers;
 mod protos;
 mod utils;
-use constdb::{Engine, Settings};
-use handlers::database::{create_db_route, drop_db_route, list_db_route};
-use handlers::dml::{table_delete, table_get_by_key, table_insert, table_update};
-use handlers::table::{create_table_route, drop_table_route, list_table_route};
-use tokio::sync::RwLock;
 
-use warp::Filter;
+use axum::routing::get;
+use axum::{Router};
+use constdb::{Engine, Settings};
+use handlers::database::db_routes;
+use handlers::dml::dml_routes;
+use handlers::table::table_routes;
+
+use tokio::sync::RwLock;
 
 use clap::Parser;
 
@@ -31,32 +34,23 @@ async fn main() {
     };
     let const_db = Arc::new(RwLock::new(Engine::new(settings).unwrap()));
 
-    let index_route = warp::path::end().map(|| "Hello, ConstDB!");
+    let app = Router::new()
+        .route("/", get(root))
+        .nest("/api/v1/dbs/", db_routes())
+        .nest("/api/v1/dbs/:db_name/tables/", table_routes())
+        .nest(
+            "/api/v1/dbs/:db_name/tables/:table_name/data/",
+            dml_routes(),
+        )
+        .with_state(const_db);
 
-    let table_insert = table_insert(&const_db);
-    let table_query_by_key = table_get_by_key(&const_db);
-    let table_delete = table_delete(&const_db);
-    let table_update = table_update(&const_db);
-    let list_table = list_table_route(&const_db);
-    let create_table = create_table_route(&const_db);
-    let drop_table = drop_table_route(&const_db);
-    let list_db = list_db_route(&const_db);
-    let create_db = create_db_route(&const_db);
-    let drop_db = drop_db_route(&const_db);
-    let ddl_dml_routes = warp::path!("dbs" / ..).and(
-        create_db
-            .or(list_db)
-            .or(create_table)
-            .or(drop_db)
-            .or(drop_table)
-            .or(list_table)
-            .or(table_insert)
-            .or(table_query_by_key)
-            .or(table_delete)
-            .or(table_update),
-    );
-    let api_routes = warp::path!("api" / "v1" / ..).and(ddl_dml_routes);
-    warp::serve(index_route.or(api_routes))
-        .run(([0, 0, 0, 0], 8000))
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
         .await
+        .unwrap();
+}
+
+async fn root() -> &'static str {
+    "Hello, ConstDB!"
 }

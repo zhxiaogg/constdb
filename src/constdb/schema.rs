@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::constdb::errors::ConstDBError;
 use crate::protos::constdb_model::TableSettings;
+use axum::body::Bytes;
 use serde_json::{Map, Value};
-use warp::hyper::body::Bytes;
 
 use super::PrimaryKey;
 

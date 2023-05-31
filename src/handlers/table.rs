@@ -4,78 +4,63 @@ use crate::constdb::Engine;
 use crate::handlers::models::*;
 use crate::protos::constdb_model::TableSettings;
 
+use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use axum::routing::{delete, get, post};
+use axum::{Json, Router};
 use tokio::sync::RwLock;
-use warp::hyper::StatusCode;
-use warp::reply::{json, with_status};
-use warp::Filter;
-use warp::{self, Reply};
 
-pub fn list_table_route(
-    db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    let const_db = Arc::clone(db);
-    warp::path!(String / "tables")
-        .and(warp::path::end())
-        .and(warp::get())
-        .then(move |db_name: String| {
-            let const_db = Arc::clone(&const_db);
-            async move {
-                let cdb = const_db.read().await;
-                let result = cdb.list_table(db_name.as_str());
-                match result {
-                    Ok(tables) => with_status(json(&tables), StatusCode::OK).into_response(),
-                    Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
-                }
-            }
-        })
+pub fn table_routes() -> Router<Arc<RwLock<Engine>>> {
+    Router::new()
+        .route("/", get(list_table_route))
+        .route("/", post(create_table_route))
+        .route("/:table_name", delete(drop_table_route))
 }
 
-pub fn create_table_route(
-    db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    let const_db = Arc::clone(db);
-    warp::path!(String / "tables")
-        .and(warp::path::end())
-        .and(warp::post())
-        .and(warp::body::json())
-        .then(move |db_name: String, new_table_input: TableSettings| {
-            println!(
-                "create table [{}] under db [{}]",
-                new_table_input.name, db_name
-            );
-            let const_db = Arc::clone(&const_db);
-            async move {
-                let mut db = const_db.write().await;
-                let result = db.create_table(db_name.as_str(), &new_table_input);
-                match result {
-                    Ok(()) => {
-                        let output = CreateTableOutput {
-                            name: new_table_input.name.to_string(),
-                        };
-                        with_status(warp::reply::json(&output), StatusCode::CREATED).into_response()
-                    }
-                    Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
-                }
-            }
-        })
+pub async fn list_table_route(
+    State(const_db): State<Arc<RwLock<Engine>>>,
+    Path(db_name): Path<String>,
+) -> impl IntoResponse {
+    let cdb = const_db.read().await;
+    let result = cdb.list_table(db_name.as_str());
+    match result {
+        Ok(tables) => (StatusCode::OK, Json(tables)).into_response(),
+        Err(e) => (e.http_status_code(), e.to_string()).into_response(),
+    }
 }
 
-pub fn drop_table_route(
-    db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    let const_db = Arc::clone(db);
-    warp::path!(String / "tables" / String)
-        .and(warp::path::end())
-        .and(warp::delete())
-        .then(move |db_name: String, table_name: String| {
-            let const_db = Arc::clone(&const_db);
-            async move {
-                let mut cdb = const_db.write().await;
-                let result = cdb.delete_table(db_name.as_str(), table_name.as_str());
-                match result {
-                    Ok(_) => StatusCode::OK.into_response(),
-                    Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
-                }
-            }
-        })
+pub async fn create_table_route(
+    State(const_db): State<Arc<RwLock<Engine>>>,
+    Path(db_name): Path<String>,
+    Json(new_table_input): Json<TableSettings>,
+) -> impl IntoResponse {
+    println!(
+        "create table [{}] under db [{}]",
+        new_table_input.name, db_name
+    );
+    let mut db = const_db.write().await;
+    let result = db.create_table(db_name.as_str(), &new_table_input);
+    match result {
+        Ok(()) => {
+            let output = CreateTableOutput {
+                name: new_table_input.name.to_string(),
+            };
+            (StatusCode::CREATED, Json(output)).into_response()
+        }
+        Err(e) => (e.http_status_code(), e.to_string()).into_response(),
+    }
+}
+
+pub async fn drop_table_route(
+    State(const_db): State<Arc<RwLock<Engine>>>,
+    Path(db_name): Path<String>,
+    Path(table_name): Path<String>,
+) -> impl IntoResponse {
+    let mut cdb = const_db.write().await;
+    let result = cdb.delete_table(db_name.as_str(), table_name.as_str());
+    match result {
+        Ok(_) => (StatusCode::OK, ()).into_response(),
+        Err(e) => (e.http_status_code(), e.to_string()).into_response(),
+    }
 }

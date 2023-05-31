@@ -2,66 +2,51 @@ use std::sync::Arc;
 
 use crate::constdb::Engine;
 use crate::handlers::models::*;
+use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use axum::routing::get;
+use axum::routing::{delete, post};
+use axum::{Json, Router};
 use tokio::sync::RwLock;
-use warp::hyper::StatusCode;
-use warp::reply::{json, with_status};
-use warp::Filter;
-use warp::{self, Reply};
 
-pub fn list_db_route(
-    db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    let const_db = Arc::clone(db);
-    warp::path::end().and(warp::get()).then(move || {
-        let const_db = Arc::clone(&const_db);
-        async move {
-            let cdb = const_db.read().await;
-            let result = cdb.list_db();
-            match result {
-                Ok(dbs) => with_status(json(&dbs), StatusCode::OK).into_response(),
-                Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
-            }
-        }
-    })
+pub fn db_routes() -> Router<Arc<RwLock<Engine>>> {
+    Router::new()
+        .route("/", get(list_db_route))
+        .route("/", post(create_db_route))
+        .route("/:db_name", delete(drop_db_route))
 }
 
-pub fn create_db_route(
-    db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    let const_db = Arc::clone(db);
-    warp::path::end()
-        .and(warp::post())
-        .and(warp::body::json())
-        .then(move |create_db_input: CreateDBInput| {
-            println!("creating db [{}]...", create_db_input.name);
-            let const_db = Arc::clone(&const_db);
-            async move {
-                let mut cdb = const_db.write().await;
-                let result = cdb.create_db(create_db_input.name.as_str());
-                match result {
-                    Ok(db) => with_status(json(&db), StatusCode::CREATED).into_response(),
-                    Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
-                }
-            }
-        })
+pub async fn list_db_route(State(const_db): State<Arc<RwLock<Engine>>>) -> impl IntoResponse {
+    let cdb = const_db.read().await;
+    let result = cdb.list_db();
+    match result {
+        Ok(dbs) => (StatusCode::OK, Json(dbs)).into_response(),
+        Err(e) => (e.http_status_code(), e.to_string()).into_response(),
+    }
 }
 
-pub fn drop_db_route(
-    db: &Arc<RwLock<Engine>>,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    let const_db = Arc::clone(db);
-    warp::path!(String)
-        .and(warp::path::end())
-        .and(warp::delete())
-        .then(move |db_name: String| {
-            let const_db = Arc::clone(&const_db);
-            async move {
-                let mut cdb = const_db.write().await;
-                let result = cdb.drop_db(db_name.as_str());
-                match result {
-                    Ok(_) => StatusCode::OK.into_response(),
-                    Err(e) => with_status(e.to_string(), e.http_status_code()).into_response(),
-                }
-            }
-        })
+pub async fn create_db_route(
+    State(const_db): State<Arc<RwLock<Engine>>>,
+    Json(create_db_input): Json<CreateDBInput>,
+) -> impl IntoResponse {
+    println!("creating db [{}]...", create_db_input.name);
+    let mut cdb = const_db.write().await;
+    let result = cdb.create_db(create_db_input.name.as_str());
+    match result {
+        Ok(db) => (StatusCode::CREATED, Json(db)).into_response(),
+        Err(e) => (e.http_status_code(), e.to_string()).into_response(),
+    }
+}
+
+pub async fn drop_db_route(
+    State(const_db): State<Arc<RwLock<Engine>>>,
+    Path(db_name): Path<String>,
+) -> impl IntoResponse {
+    let mut cdb = const_db.write().await;
+    let result = cdb.drop_db(db_name.as_str());
+    match result {
+        Ok(_) => (StatusCode::OK, ()).into_response(),
+        Err(e) => (e.http_status_code(), e.to_string()).into_response(),
+    }
 }

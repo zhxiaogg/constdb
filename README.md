@@ -11,22 +11,22 @@ cargo run -- --root /tmp/constdb
 
 To create a database within constdb:
 ```bash
-curl -XPOST -H'content-type:application/json' -d'{"name": "test"}' http://localhost:8000/api/v1/dbs
+curl -XPOST -H'content-type:application/json' -d'{"name": "test"}' http://localhost:8000/api/v1/dbs/
 ```
 
 To create a table within the database:
 ```bash
-curl -XPOST -H'content-type:application/json' -d'{"name": "persons", "primary_keys": ["last_name", "first_name"]}' http://localhost:8000/api/v1/dbs/test/tables
+curl -XPOST -H'content-type:application/json' -d'{"name": "persons", "primary_keys": ["last_name", "first_name"]}' http://localhost:8000/api/v1/dbs/test/tables/
 ```
 
 To insert data into the table:
 ```bash
-curl -XPOST -H'content-type:application/json' -d'{"first_name": "Foo", "last_name": "Bar", "age": 10, "gender": "male"}' http://localhost:8000/api/v1/dbs/test/tables/persons
+curl -XPOST -H'content-type:application/json' -d'{"first_name": "Foo", "last_name": "Bar", "age": 10, "gender": "male"}' http://localhost:8000/api/v1/dbs/test/tables/persons/data/
 ```
 
 To query the data:
 ```bash
-curl -XGET 'http://localhost:8000/api/v1/dbs/test/tables/persons?last_name=Bar&first_name=Foo'
+curl -XGET 'http://localhost:8000/api/v1/dbs/test/tables/persons/data/?last_name=Bar&first_name=Foo'
 ```
 
 ## Contribute
