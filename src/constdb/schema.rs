@@ -16,28 +16,16 @@ impl SchemaHelper {
         SchemaHelper { table_settings }
     }
 
-    pub fn update(&self, old: &[u8], patch: &[u8]) -> Result<Vec<u8>, ConstDBError> {
+    pub fn update(&self, old: &[u8], patch: &[u8]) -> Result<Bytes, ConstDBError> {
         let mut old_object = Self::get_json_object(old)?;
         let patch_object = Self::get_json_object(patch)?;
-
-        // validate to make sure no parition/sort field are about to be updated
-        let will_update_pk = self
-            .table_settings
-            .primary_keys
-            .iter()
-            .find(|k| patch_object.contains_key(*k));
-        if will_update_pk.is_some() {
-            return Err(ConstDBError::InvalidArguments(
-                "cannot update primary key fields.".to_owned(),
-            ));
-        }
-
         // updating
         for (k, v) in patch_object {
             old_object.insert(k, v);
         }
 
-        Ok(serde_json::to_string(&old_object)?.into_bytes())
+        let bytes = serde_json::to_string(&old_object)?.into_bytes();
+        Ok(Bytes::from(bytes))
     }
 
     fn get_json_object(data: &[u8]) -> Result<Map<String, Value>, ConstDBError> {

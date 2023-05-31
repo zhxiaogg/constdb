@@ -265,16 +265,11 @@ impl Engine {
         Ok(())
     }
 
-    pub fn update(
-        &self,
-        db_name: &str,
-        table_name: &str,
-        data: Bytes,
-        params: HashMap<String, String>,
-    ) -> Result<(), ConstDBError> {
+    pub fn upsert(&self, db_name: &str, table_name: &str, data: Bytes) -> Result<(), ConstDBError> {
         let table = self.get_table(db_name, table_name)?;
         let schema = SchemaHelper::new(table);
-        let primary_key = schema.build_pk_from_params(&params)?;
+        let primary_key = schema.build_pk_from_json(&data)?;
+        // let primary_key = schema.build_pk_from_params(&params)?;
         let db = self
             .dbs
             .get(db_name)
@@ -283,11 +278,12 @@ impl Engine {
         let pk = primary_key.complete()?;
         let table = db.rocks_db_for_table(table_name)?;
         let rocks_db = db.rocks_db()?;
-        let existing = rocks_db
-            .get_cf(table, pk)?
-            .ok_or(ConstDBError::NotFound(Id::Data))?;
-        let updated = schema.update(&existing, &data)?;
-        rocks_db.put_cf(table, pk, updated)?;
+        let opt_existing = rocks_db.get_cf(table, pk)?;
+        let upsert = match opt_existing {
+            Some(existing) => schema.update(&existing, &data)?,
+            None => data,
+        };
+        rocks_db.put_cf(table, pk, upsert)?;
         Ok(())
     }
 

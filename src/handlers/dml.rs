@@ -17,7 +17,7 @@ pub fn dml_routes() -> Router<Arc<RwLock<Engine>>> {
         .route("/", post(table_insert))
         .route("/", get(table_get_by_key))
         .route("/", delete(table_delete))
-        .route("/", put(table_update))
+        .route("/", put(table_upsert))
 }
 
 pub async fn table_insert(
@@ -62,15 +62,14 @@ pub async fn table_delete(
     }
 }
 
-pub async fn table_update(
+pub async fn table_upsert(
     State(const_db): State<Arc<RwLock<Engine>>>,
     Path((db_name, table_name)): Path<(String, String)>,
-    Query(params): Query<HashMap<String, String>>,
     bytes: Bytes,
 ) -> impl IntoResponse {
     let const_db = Arc::clone(&const_db);
     let cdb = const_db.read().await;
-    let result = cdb.update(db_name.as_str(), table_name.as_str(), bytes, params);
+    let result = cdb.upsert(db_name.as_str(), table_name.as_str(), bytes);
     match result {
         Ok(()) => StatusCode::OK.into_response(),
         Err(e) => (e.http_status_code(), e.to_string()).into_response(),
