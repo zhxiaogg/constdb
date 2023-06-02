@@ -54,8 +54,7 @@ pub async fn create_table_route(
 
 pub async fn drop_table_route(
     State(const_db): State<Arc<RwLock<Engine>>>,
-    Path(db_name): Path<String>,
-    Path(table_name): Path<String>,
+    Path((db_name, table_name)): Path<(String, String)>,
 ) -> impl IntoResponse {
     let mut cdb = const_db.write().await;
     let result = cdb.delete_table(db_name.as_str(), table_name.as_str());

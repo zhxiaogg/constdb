@@ -4,7 +4,23 @@ message DBSettings {
   string name = 1;
 }
 
+enum DataType {
+  Unknown = 0;
+  String = 1;
+  Boolean = 2;
+  Int32 = 3;
+  Int64 = 4;
+  Float32 = 5;
+  Float64 = 6;
+  DateTime = 7;
+}
+
+message Field {
+  string name = 1;
+  DataType data_type = 2;
+}
+
 message TableSettings {
   string name = 1;
-  repeated string primary_keys = 2;
+  repeated Field primary_keys = 2;
 }
