@@ -14,7 +14,7 @@ clap = { version = "4.3.1", features = ["derive"] }
 rocksdb = "0.21.0"
 protobuf = "3.0.0-alpha.7"
 protobuf-parse = "3.0.0-alpha.7"
-axum = "0.6.18"
+axum = "0.6.19"
 tower-http = {version = "0.4", features = ["normalize-path"] }
 tower = "0.4"
 
